@@ -70,8 +70,9 @@ export class AdminService {
         locales,
         settings: {
           ...settings,
-          ...(body.seo ? { seo: body.seo } : {}),
+          ...(body.seo ? { seo: { ...(settings.seo as object | undefined), ...body.seo } } : {}),
           ...(body.localeFallback !== undefined ? { localeFallback: body.localeFallback } : {}),
+          ...(body.org ? { org: body.org } : {}),
         },
       })
       .where(eq(sites.id, siteId))

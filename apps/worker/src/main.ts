@@ -12,6 +12,7 @@ import { loadConfig } from './config.js';
 import { processImage } from './image.js';
 import { pingIndexNow, type SeoPingJob } from './indexnow.js';
 import { assertPublicUrl } from './url-guard.js';
+import { purgeCdn } from './cdn-purge.js';
 
 const cfg = loadConfig();
 const db = createDb(cfg.DATABASE_URL, { max: 5 });
@@ -87,6 +88,12 @@ interface WebhookJob {
   payload: Record<string, unknown>;
 }
 
+const cdnPurgeWorker = new Worker<{ tags: string[] }>(
+  'cdn-purge',
+  async (job) => purgeCdn(db, job.data.tags),
+  { connection, concurrency: 2 },
+);
+
 const webhookWorker = new Worker<WebhookJob>(
   'webhook',
   async (job) => {
@@ -128,8 +135,11 @@ seoPingWorker.on('failed', (job, err) => {
 webhookWorker.on('failed', (job, err) => {
   console.error(`webhook ${job?.id} failed: ${err.message}`);
 });
+cdnPurgeWorker.on('failed', (job, err) => {
+  console.error(`cdn-purge ${job?.id} failed: ${err.message}`);
+});
 
-console.log('worker started: media-process, invalidation, seo-ping, webhook');
+console.log('worker started: media-process, invalidation, seo-ping, webhook, cdn-purge');
 
 async function shutdown() {
   await Promise.all([
@@ -137,6 +147,7 @@ async function shutdown() {
     invalidationWorker.close(),
     seoPingWorker.close(),
     webhookWorker.close(),
+    cdnPurgeWorker.close(),
   ]);
   process.exit(0);
 }

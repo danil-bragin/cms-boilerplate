@@ -6,6 +6,7 @@ import { CONFIG, type AppConfig } from '../config/config.js';
 
 export const REVALIDATE_CLIENT = Symbol('REVALIDATE_CLIENT');
 export const INVALIDATION_QUEUE = 'invalidation';
+export const CDN_PURGE_QUEUE = 'cdn-purge';
 
 export interface RevalidateClient {
   invalidate(tags: string[]): Promise<void>;
@@ -27,6 +28,7 @@ export class HttpRevalidateClient implements RevalidateClient {
   constructor(
     @Inject(CONFIG) private readonly cfg: AppConfig,
     @Optional() @InjectQueue(INVALIDATION_QUEUE) private readonly queue?: Queue,
+    @Optional() @InjectQueue(CDN_PURGE_QUEUE) private readonly cdnQueue?: Queue,
   ) {}
 
   async invalidate(tags: string[]): Promise<void> {
@@ -38,6 +40,14 @@ export class HttpRevalidateClient implements RevalidateClient {
         'invalidate',
         { tags },
         { attempts: 5, backoff: { type: 'exponential', delay: 2000 } },
+      );
+    }
+    // CDN edge purge (worker resolves tags → URLs and calls the provider)
+    if (process.env.CDN_PROVIDER && process.env.CDN_PROVIDER !== 'none') {
+      await this.cdnQueue?.add(
+        'purge',
+        { tags },
+        { attempts: 5, backoff: { type: 'exponential', delay: 3000 } },
       );
     }
   }

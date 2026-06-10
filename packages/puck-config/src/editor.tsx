@@ -18,6 +18,7 @@ export function createEditorConfig(
       fields: {
         title: { type: 'text', label: 'Title (SEO)' },
         description: { type: 'textarea', label: 'Description (SEO)' },
+        ogImage: { ...opts.mediaField, label: 'Social image (og:image)' },
       },
       defaultProps: { title: '', description: '' },
     },

@@ -72,4 +72,6 @@ export interface Components {
 export interface RootProps {
   title: string;
   description: string;
+  /** editor-chosen social/OG image; generated card is the fallback */
+  ogImage?: MediaRef;
 }

@@ -12,6 +12,7 @@ export const WEBHOOK_QUEUE = 'webhook';
 interface RootProps {
   title?: string;
   description?: string;
+  ogImage?: { s3Key?: string };
 }
 
 /** Full flattened text content for full-text search. */
@@ -71,6 +72,7 @@ export class PublishService {
       title: rootProps.title || ctx.page.name,
       // empty description hurts SEO scores — fall back to page text content
       description: rootProps.description || extractDescription(version.puckData) || '',
+      ...(rootProps.ogImage?.s3Key ? { ogImageKey: rootProps.ogImage.s3Key } : {}),
     };
     const searchText = [seo.title, seo.description, extractSearchText(version.puckData)]
       .filter(Boolean)

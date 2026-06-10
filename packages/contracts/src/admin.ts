@@ -19,9 +19,22 @@ export const updateSiteBody = z.object({
   domains: z.array(domainSchema).min(1).optional(),
   defaultLocale: localeSchema.optional(),
   locales: z.array(localeSchema).min(1).optional(),
-  seo: z.object({ blockAiTraining: z.boolean() }).optional(),
+  seo: z
+    .object({
+      blockAiTraining: z.boolean().optional(),
+      googleVerification: z.string().max(100).optional(),
+      bingVerification: z.string().max(100).optional(),
+    })
+    .optional(),
   /** redirect untranslated paths to the default locale instead of 404 */
   localeFallback: z.boolean().optional(),
+  org: z
+    .object({
+      name: z.string().max(200).optional(),
+      logoUrl: z.url().optional(),
+      sameAs: z.array(z.url()).max(20).optional(),
+    })
+    .optional(),
 });
 
 export const updatePageLocaleBody = z.object({

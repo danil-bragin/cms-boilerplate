@@ -1,5 +1,9 @@
 interface JsonLdProps {
-  site: { name: string; origin: string };
+  site: {
+    name: string;
+    origin: string;
+    org?: { name?: string; logoUrl?: string; sameAs?: string[] };
+  };
   page: {
     title: string;
     description: string;
@@ -38,9 +42,22 @@ export function JsonLd({ site, page }: JsonLdProps) {
         '@type': 'WebSite',
         '@id': `${site.origin}/#website`,
         url: site.origin,
-        name: site.name,
+        name: site.org?.name ?? site.name,
         inLanguage: page.locale,
+        ...(site.org ? { publisher: { '@id': `${site.origin}/#organization` } } : {}),
       },
+      ...(site.org
+        ? [
+            {
+              '@type': 'Organization',
+              '@id': `${site.origin}/#organization`,
+              name: site.org.name ?? site.name,
+              url: site.origin,
+              ...(site.org.logoUrl ? { logo: site.org.logoUrl } : {}),
+              ...(site.org.sameAs?.length ? { sameAs: site.org.sameAs } : {}),
+            },
+          ]
+        : []),
       {
         '@type': 'WebPage',
         '@id': `${page.url}/#webpage`,

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { Render } from '@puckeditor/core/rsc';
 import { renderConfig } from '@cms/puck-config/render';
 import '@/lib/images.server';
+import { imageUrl } from '@cms/puck-config';
 import {
   getPublishedAlternates,
   getPublishedPage,
@@ -53,6 +54,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const origin = siteOrigin(site);
   const alternates = await getPublishedAlternates(page.pageId);
   const canonical = publicUrl(origin, page.locale, page.path);
+  const seoSettings = (site.settings as { seo?: { googleVerification?: string; bingVerification?: string } }).seo ?? {};
 
   // hreflang via link tags (single channel — not duplicated in the sitemap);
   // x-default points at the site's default locale when that variant exists
@@ -66,7 +68,10 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
   const title = page.seo.title ?? '';
   const description = page.seo.description ?? '';
-  const ogImage = `${origin}/og/${page.pageId}?locale=${page.locale}&v=${page.publishedAt.getTime()}`;
+  // editor-chosen social image wins; generated text card is the fallback
+  const ogImage = page.seo.ogImageKey
+    ? imageUrl(page.seo.ogImageKey, { width: 1200, height: 630 })
+    : `${origin}/og/${page.pageId}?locale=${page.locale}&v=${page.publishedAt.getTime()}`;
 
   return {
     metadataBase: new URL(origin),
@@ -100,6 +105,16 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
       description,
       images: [ogImage],
     },
+    ...(seoSettings.googleVerification || seoSettings.bingVerification
+      ? {
+          verification: {
+            ...(seoSettings.googleVerification ? { google: seoSettings.googleVerification } : {}),
+            ...(seoSettings.bingVerification
+              ? { other: { 'msvalidate.01': seoSettings.bingVerification } }
+              : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -115,7 +130,11 @@ export default async function Page({ params }: { params: Promise<Params> }) {
     <>
       {site && (
         <JsonLd
-          site={{ name: site.slug, origin }}
+          site={{
+            name: site.slug,
+            origin,
+            org: (site.settings as { org?: { name?: string; logoUrl?: string; sameAs?: string[] } }).org,
+          }}
           page={{
             title: page.seo.title ?? '',
             description: page.seo.description ?? '',

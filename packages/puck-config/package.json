@@ -17,6 +17,10 @@
     "./editor": {
       "types": "./dist/editor.d.ts",
       "default": "./dist/editor.js"
+    },
+    "./render-search": {
+      "types": "./dist/components/search-box.d.ts",
+      "default": "./dist/components/search-box.js"
     }
   },
   "scripts": {

@@ -36,3 +36,6 @@ Generate real secrets: `openssl rand -hex 32`.
 Observability quickstart: `docker compose -f infra/docker-compose.yml --profile observability up -d jaeger`,
 set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`, open http://localhost:16686.
 | `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | api, worker | Metrics OTLP target. NB: signal-specific endpoints are used **as-is** — include the full `/api/v1/otlp/v1/metrics` path for Prometheus. |
+| `CDN_PROVIDER` | api, worker | `cloudflare` \| `cloudfront` \| unset. Enables edge purge on publish. |
+| `CLOUDFLARE_ZONE_ID` / `CLOUDFLARE_API_TOKEN` | worker | Cloudflare purge-by-URL credentials. |
+| `CLOUDFRONT_DISTRIBUTION_ID` | worker | CloudFront invalidation target (uses ambient AWS credentials/IRSA). |

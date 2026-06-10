@@ -46,11 +46,23 @@ export function SiteForm() {
   );
 }
 
-export function SiteEditor({ site }: { site: SiteDto & { settings?: { seo?: { blockAiTraining?: boolean } } } }) {
+interface SiteSettings {
+  seo?: { blockAiTraining?: boolean; googleVerification?: string; bingVerification?: string };
+  localeFallback?: boolean;
+  org?: { name?: string; logoUrl?: string; sameAs?: string[] };
+}
+
+export function SiteEditor({ site }: { site: SiteDto & { settings?: SiteSettings } }) {
   const [domains, setDomains] = useState(site.domains.join(', '));
   const [locales, setLocales] = useState(site.locales.join(', '));
   const [defaultLocale, setDefaultLocale] = useState(site.defaultLocale);
   const [blockAi, setBlockAi] = useState(Boolean(site.settings?.seo?.blockAiTraining));
+  const [localeFallback, setLocaleFallback] = useState(Boolean(site.settings?.localeFallback));
+  const [googleVerify, setGoogleVerify] = useState(site.settings?.seo?.googleVerification ?? '');
+  const [bingVerify, setBingVerify] = useState(site.settings?.seo?.bingVerification ?? '');
+  const [orgName, setOrgName] = useState(site.settings?.org?.name ?? '');
+  const [orgLogo, setOrgLogo] = useState(site.settings?.org?.logoUrl ?? '');
+  const [orgSameAs, setOrgSameAs] = useState((site.settings?.org?.sameAs ?? []).join(', '));
   const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -70,7 +82,11 @@ export function SiteEditor({ site }: { site: SiteDto & { settings?: { seo?: { bl
       <div style={row}>
         <label style={{ color: '#555' }}>
           <input type="checkbox" checked={blockAi} onChange={(e) => setBlockAi(e.target.checked)} /> Block AI
-          training bots in robots.txt
+          training bots
+        </label>
+        <label style={{ color: '#555' }}>
+          <input type="checkbox" checked={localeFallback} onChange={(e) => setLocaleFallback(e.target.checked)} />{' '}
+          Locale fallback (untranslated → default locale)
         </label>
         <span style={{ flex: 1 }} />
         <button
@@ -82,7 +98,19 @@ export function SiteEditor({ site }: { site: SiteDto & { settings?: { seo?: { bl
                 domains: domains.split(',').map((d) => d.trim()).filter(Boolean),
                 locales: locales.split(',').map((l) => l.trim()).filter(Boolean),
                 defaultLocale,
-                seo: { blockAiTraining: blockAi },
+                localeFallback,
+                seo: {
+                  blockAiTraining: blockAi,
+                  ...(googleVerify ? { googleVerification: googleVerify } : {}),
+                  ...(bingVerify ? { bingVerification: bingVerify } : {}),
+                },
+                org: orgName
+                  ? {
+                      name: orgName,
+                      ...(orgLogo ? { logoUrl: orgLogo } : {}),
+                      sameAs: orgSameAs.split(',').map((u) => u.trim()).filter(Boolean),
+                    }
+                  : undefined,
               });
               setMessage(result.ok ? 'Saved' : result.error?.message ?? 'failed');
             })
@@ -91,6 +119,29 @@ export function SiteEditor({ site }: { site: SiteDto & { settings?: { seo?: { bl
           Save
         </button>
       </div>
+      <details style={{ marginTop: 8 }}>
+        <summary style={{ cursor: 'pointer', color: '#555', fontSize: 13 }}>SEO & Organization</summary>
+        <div style={{ ...row, marginTop: 8 }}>
+          <label style={{ width: 160, color: '#555', fontSize: 13 }}>Google verification</label>
+          <input style={input} value={googleVerify} onChange={(e) => setGoogleVerify(e.target.value)} placeholder="google-site-verification token" />
+        </div>
+        <div style={row}>
+          <label style={{ width: 160, color: '#555', fontSize: 13 }}>Bing verification</label>
+          <input style={input} value={bingVerify} onChange={(e) => setBingVerify(e.target.value)} placeholder="msvalidate.01 token" />
+        </div>
+        <div style={row}>
+          <label style={{ width: 160, color: '#555', fontSize: 13 }}>Organization name</label>
+          <input style={input} value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Acme Inc (Organization JSON-LD)" />
+        </div>
+        <div style={row}>
+          <label style={{ width: 160, color: '#555', fontSize: 13 }}>Logo URL</label>
+          <input style={input} value={orgLogo} onChange={(e) => setOrgLogo(e.target.value)} placeholder="https://…/logo.png" />
+        </div>
+        <div style={row}>
+          <label style={{ width: 160, color: '#555', fontSize: 13 }}>Social profiles (sameAs)</label>
+          <input style={input} value={orgSameAs} onChange={(e) => setOrgSameAs(e.target.value)} placeholder="https://x.com/acme, https://linkedin.com/company/acme" />
+        </div>
+      </details>
       {message && <p style={{ color: message === 'Saved' ? '#137333' : '#c5221f', margin: 0 }}>{message}</p>}
       <MembersEditor siteId={site.id} />
     </div>
