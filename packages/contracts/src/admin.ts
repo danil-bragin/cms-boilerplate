@@ -78,6 +78,12 @@ export const webhookDto = z.object({
   secret: z.string().optional(),
 });
 
+export const addMemberBody = z.object({
+  email: z.email(),
+  role: z.enum(['editor', 'viewer']).default('editor'),
+});
+export type AddMemberBody = z.infer<typeof addMemberBody>;
+
 // --- scheduled publishing ---
 
 export const scheduleBody = z.object({

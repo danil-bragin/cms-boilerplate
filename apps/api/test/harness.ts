@@ -13,6 +13,7 @@ import { createDb, type Db, sites, users } from '@cms/db';
 import type { AuthContext } from '@cms/auth';
 import { CONFIG, type AppConfig } from '../src/config/config.js';
 import { AUTH_VERIFIER, AuthGuard } from '../src/auth/auth.guard.js';
+import { SiteAccessService } from '../src/auth/site-access.service.js';
 import { DB } from '../src/db/db.module.js';
 
 const MIGRATIONS = path.resolve(
@@ -112,8 +113,9 @@ export async function startStack(opts: StackOptions): Promise<TestStack> {
       { provide: CONFIG, useValue: cfg },
       { provide: DB, useValue: db },
       { provide: AUTH_VERIFIER, useValue: async () => current },
+      SiteAccessService,
     ],
-    exports: [CONFIG, DB, AUTH_VERIFIER],
+    exports: [CONFIG, DB, AUTH_VERIFIER, SiteAccessService],
   };
 
   const { BullModule } = await import('@nestjs/bullmq');

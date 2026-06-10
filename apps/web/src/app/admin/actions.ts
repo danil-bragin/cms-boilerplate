@@ -141,6 +141,15 @@ export async function cancelSchedule(scheduleId: string) {
 }
 
 export async function createPreviewLink(versionId: string) {
+  // server actions are externally callable POST endpoints — auth is mandatory
+  const { getSession } = await import('@/lib/session');
+  const session = await getSession();
+  if (!session || session.roles.length === 0) {
+    return { ok: false as const, error: { status: 401, code: 'no_session', message: 'Not authenticated' } };
+  }
+  // ownership check: the API 404s versions the caller cannot see
+  const version = await run(() => api(`/versions/${versionId}`));
+  if (!version.ok) return { ok: false as const, error: version.error };
   const { createPreviewToken } = await import('@/lib/preview-token');
   return { ok: true as const, data: `/preview/${versionId}?token=${createPreviewToken(versionId)}` };
 }
@@ -243,4 +252,25 @@ export async function updateMediaAlt(mediaId: string, alt: Record<string, string
 
 export async function deleteMedia(mediaId: string) {
   return run(() => api(`/media/${mediaId}`, { method: 'DELETE' }));
+}
+
+// --- members (cms-admin) ---
+
+export interface MemberRow {
+  id: string;
+  email: string;
+  displayName: string;
+  role: 'editor' | 'viewer';
+}
+
+export async function listMembers(siteId: string) {
+  return run(() => api<MemberRow[]>(`/sites/${siteId}/members`));
+}
+
+export async function addMember(siteId: string, email: string, role: 'editor' | 'viewer') {
+  return run(() => api(`/sites/${siteId}/members`, { method: 'POST', body: JSON.stringify({ email, role }) }));
+}
+
+export async function removeMember(memberId: string) {
+  return run(() => api(`/members/${memberId}`, { method: 'DELETE' }));
 }

@@ -1,8 +1,9 @@
 import { ConflictException, Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { isUniqueViolation } from '../db/pg-errors.js';
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { pages, pageLocales, pageVersions, publishedPages, sites } from '@cms/db';
+import { pages, pageLocales, pageVersions, publishedPages, siteMembers, sites } from '@cms/db';
 import type { LocaleSummary, PageSummary } from '@cms/contracts';
+import type { AuthContext } from '@cms/auth';
 import { DB, type Db } from '../db/db.module.js';
 
 const EMPTY_PUCK_DATA = { root: { props: {} }, content: [], zones: {} };
@@ -11,8 +12,19 @@ const EMPTY_PUCK_DATA = { root: { props: {} }, content: [], zones: {} };
 export class PagesService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
-  async listSites() {
-    return this.db.query.sites.findMany();
+  async listSites(user: AuthContext) {
+    const all = await this.db.query.sites.findMany();
+    if (user.roles.includes('cms-admin')) return all;
+    const memberships = await this.db.query.siteMembers.findMany({
+      where: eq(siteMembers.userId, user.sub),
+      columns: { siteId: true },
+    });
+    const memberOf = new Set(memberships.map((m) => m.siteId));
+    const configured = new Set(
+      (await this.db.select({ siteId: siteMembers.siteId }).from(siteMembers)).map((r) => r.siteId),
+    );
+    // visible: sites with no members configured (open) or where user is a member
+    return all.filter((s) => !configured.has(s.id) || memberOf.has(s.id));
   }
 
   async listPages(siteId: string): Promise<PageSummary[]> {

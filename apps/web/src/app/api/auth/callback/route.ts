@@ -24,5 +24,6 @@ export async function GET(req: Request): Promise<NextResponse> {
   });
 
   await sealSession(sessionFromTokens(tokens));
-  return NextResponse.redirect(new URL(returnTo.startsWith('/') ? returnTo : '/admin', req.url));
+  const safe = /^\/(?![/\\])/.test(returnTo) ? returnTo : '/admin';
+  return NextResponse.redirect(new URL(safe, req.url));
 }

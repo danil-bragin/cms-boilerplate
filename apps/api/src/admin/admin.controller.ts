@@ -18,11 +18,13 @@ import {
   updatePageLocaleBody,
   updateSiteBody,
   upsertMenuBody,
+  addMemberBody,
 } from '@cms/contracts';
 import type { AuthContext } from '@cms/auth';
 import { Roles } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { AdminService } from './admin.service.js';
+import { SiteAccessService } from '../auth/site-access.service.js';
 
 class CreateSiteDto extends createZodDto(createSiteBody) {}
 class UpdateSiteDto extends createZodDto(updateSiteBody) {}
@@ -30,6 +32,7 @@ class UpdatePageLocaleDto extends createZodDto(updatePageLocaleBody) {}
 class CreateRedirectDto extends createZodDto(createRedirectBody) {}
 class UpsertMenuDto extends createZodDto(upsertMenuBody) {}
 class CreateWebhookDto extends createZodDto(createWebhookBody) {}
+class AddMemberDto extends createZodDto(addMemberBody) {}
 
 /** Site administration: cms-admin only (editors manage content, not sites). */
 @Controller()
@@ -80,31 +83,61 @@ export class AdminController {
   deleteWebhook(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminService.deleteWebhook(id);
   }
+
+  @Get('sites/:siteId/members')
+  listMembers(@Param('siteId', ParseUUIDPipe) siteId: string) {
+    return this.adminService.listMembers(siteId);
+  }
+
+  @Post('sites/:siteId/members')
+  addMember(@Param('siteId', ParseUUIDPipe) siteId: string, @Body() body: AddMemberDto) {
+    return this.adminService.addMember(siteId, body.email, body.role);
+  }
+
+  @Delete('members/:id')
+  removeMember(@Param('id', ParseUUIDPipe) id: string) {
+    return this.adminService.removeMember(id);
+  }
 }
 
 /** Menus + slug override: editor-level operations. */
 @Controller()
 @Roles('cms-editor')
 export class ContentAdminController {
-  constructor(@Inject(AdminService) private readonly adminService: AdminService) {}
+  constructor(
+    @Inject(AdminService) private readonly adminService: AdminService,
+    @Inject(SiteAccessService) private readonly access: SiteAccessService,
+  ) {}
 
   @Get('sites/:siteId/menus')
-  listMenus(@Param('siteId', ParseUUIDPipe) siteId: string) {
+  async listMenus(@Param('siteId', ParseUUIDPipe) siteId: string, @CurrentUser() user: AuthContext) {
+    await this.access.assertSiteAccess(user, siteId, false);
     return this.adminService.listMenus(siteId);
   }
 
   @Put('sites/:siteId/menus')
-  upsertMenu(@Param('siteId', ParseUUIDPipe) siteId: string, @Body() body: UpsertMenuDto) {
+  async upsertMenu(
+    @Param('siteId', ParseUUIDPipe) siteId: string,
+    @Body() body: UpsertMenuDto,
+    @CurrentUser() user: AuthContext,
+  ) {
+    await this.access.assertSiteAccess(user, siteId);
     return this.adminService.upsertMenu(siteId, body);
   }
 
   @Delete('menus/:id')
-  deleteMenu(@Param('id', ParseUUIDPipe) id: string) {
+  async deleteMenu(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthContext) {
+    await this.access.assertSiteAccess(user, await this.access.siteForMenu(id));
     return this.adminService.deleteMenu(id);
   }
 
   @Patch('page-locales/:id')
-  updatePageLocale(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdatePageLocaleDto) {
+  async updatePageLocale(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdatePageLocaleDto,
+    @CurrentUser() user: AuthContext,
+  ) {
+    await this.access.assertSiteAccess(user, await this.access.siteForPageLocale(id));
     return this.adminService.updatePageLocale(id, body.slugOverride);
   }
 }

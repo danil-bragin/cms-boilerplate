@@ -1,5 +1,6 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { isUniqueViolation } from '../db/pg-errors.js';
+import { sanitizePuckData } from './sanitize.js';
 import { desc, eq } from 'drizzle-orm';
 import { pageLocales, pageVersions } from '@cms/db';
 import type { PuckData } from '@cms/contracts';
@@ -41,6 +42,9 @@ export class VersionsService {
     baseUpdatedAt?: Date,
   ) {
     await this.assertLocale(pageLocaleId);
+    // richtext HTML from the editor is sanitized HERE, server-side — the only
+    // trustworthy place (the client comment "sanitized-at-edit" is not a control)
+    sanitizePuckData(puckData);
 
     try {
       return await this.db.transaction(async (tx) => {

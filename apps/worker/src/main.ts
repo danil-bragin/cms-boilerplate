@@ -11,6 +11,7 @@ import { createDb, media } from '@cms/db';
 import { loadConfig } from './config.js';
 import { processImage } from './image.js';
 import { pingIndexNow, type SeoPingJob } from './indexnow.js';
+import { assertPublicUrl } from './url-guard.js';
 
 const cfg = loadConfig();
 const db = createDb(cfg.DATABASE_URL, { max: 5 });
@@ -89,6 +90,7 @@ interface WebhookJob {
 const webhookWorker = new Worker<WebhookJob>(
   'webhook',
   async (job) => {
+    await assertPublicUrl(job.data.url); // SSRF guard: no internal/metadata targets
     const body = JSON.stringify({
       event: job.data.event,
       payload: job.data.payload,
@@ -103,6 +105,7 @@ const webhookWorker = new Worker<WebhookJob>(
         'x-cms-signature': `sha256=${signature}`,
       },
       body,
+      redirect: 'error',
       signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`webhook ${job.data.url} returned ${res.status}`);

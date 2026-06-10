@@ -13,7 +13,8 @@ async function bootstrap() {
     .insert(users)
     .values({ id: 'system', email: 'system@cms.local', displayName: 'System' })
     .onConflictDoNothing();
-  app.enableCors({ origin: true, credentials: false });
+  const origins = (process.env.WEB_ORIGINS ?? 'http://localhost:3000').split(',').map((o) => o.trim());
+  app.enableCors({ origin: origins, credentials: false });
   app.enableShutdownHooks();
   await app.listen(cfg.API_PORT);
   console.log(`api listening on :${cfg.API_PORT}`);

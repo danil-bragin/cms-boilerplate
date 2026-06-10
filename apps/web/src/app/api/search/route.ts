@@ -8,9 +8,29 @@ import { db } from '@/lib/db';
  * `websearch_to_tsquery` accepts user-style queries ("foo -bar", quoted phrases);
  * GIN index on to_tsvector('simple', search_text) keeps it fast.
  */
+// per-replica sliding window: cheap brake on tsquery DoS; put a CDN/WAF rule
+// in front for cluster-wide limits
+const WINDOW_MS = 60_000;
+const LIMIT = 30;
+const hits = new Map<string, number[]>();
+
+function rateLimited(ip: string): boolean {
+  const now = Date.now();
+  const list = (hits.get(ip) ?? []).filter((t) => now - t < WINDOW_MS);
+  if (list.length >= LIMIT) return true;
+  list.push(now);
+  hits.set(ip, list);
+  if (hits.size > 10_000) hits.clear();
+  return false;
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0]!.trim();
+  if (rateLimited(ip)) {
+    return NextResponse.json({ error: 'rate limited' }, { status: 429 });
+  }
   const host = (req.headers.get('host') ?? '').split(':')[0] ?? '';
-  const q = (req.nextUrl.searchParams.get('q') ?? '').trim().slice(0, 200);
+  const q = (req.nextUrl.searchParams.get('q') ?? '').trim().slice(0, 100);
   const locale = req.nextUrl.searchParams.get('locale') ?? '';
   if (q.length < 2) {
     return NextResponse.json({ results: [] });

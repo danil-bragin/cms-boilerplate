@@ -6,7 +6,9 @@ import { oidcConfig } from '@/lib/oidc';
 export async function GET(req: Request): Promise<NextResponse> {
   const config = await oidcConfig();
   const url = new URL(req.url);
-  const returnTo = url.searchParams.get('returnTo') ?? '/admin';
+  const raw = url.searchParams.get('returnTo') ?? '/admin';
+  // local paths only: '//' and '/\\' are protocol-relative escapes
+  const returnTo = /^\/(?![/\\])/.test(raw) ? raw : '/admin';
 
   const verifier = client.randomPKCECodeVerifier();
   const challenge = await client.calculatePKCECodeChallenge(verifier);

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
-import { menus, pageLocales, redirects, sites, webhooks } from '@cms/db';
+import { menus, pageLocales, redirects, siteMembers, sites, users, webhooks } from '@cms/db';
 import type {
   CreateRedirectBody,
   CreateSiteBody,
@@ -178,6 +178,44 @@ export class AdminService {
 
   async deleteWebhook(id: string) {
     await this.db.delete(webhooks).where(eq(webhooks.id, id));
+    return { ok: true };
+  }
+
+  // --- members ---
+
+  async listMembers(siteId: string) {
+    const rows = await this.db
+      .select({
+        id: siteMembers.id,
+        role: siteMembers.role,
+        email: users.email,
+        displayName: users.displayName,
+      })
+      .from(siteMembers)
+      .innerJoin(users, eq(users.id, siteMembers.userId))
+      .where(eq(siteMembers.siteId, siteId));
+    return rows;
+  }
+
+  async addMember(siteId: string, email: string, role: 'editor' | 'viewer') {
+    await this.mustGetSite(siteId);
+    const user = await this.db.query.users.findFirst({ where: eq(users.email, email) });
+    if (!user) {
+      throw new NotFoundException({
+        code: 'user_not_found',
+        message: 'User must log in to the CMS at least once before being added',
+      });
+    }
+    const [row] = await this.db
+      .insert(siteMembers)
+      .values({ siteId, userId: user.id, role })
+      .onConflictDoUpdate({ target: [siteMembers.siteId, siteMembers.userId], set: { role } })
+      .returning();
+    return row!;
+  }
+
+  async removeMember(memberId: string) {
+    await this.db.delete(siteMembers).where(eq(siteMembers.id, memberId));
     return { ok: true };
   }
 
