@@ -2,32 +2,45 @@ import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { and, eq, ne } from 'drizzle-orm';
-import { pages, pageLocales, pageVersions, publishedPages } from '@cms/db';
+import { pages, pageLocales, pageVersions, publishedPages, webhooks } from '@cms/db';
 import { DB, type Db } from '../db/db.module.js';
 import { REVALIDATE_CLIENT, type RevalidateClient } from './revalidate.client.js';
 
 export const SEO_PING_QUEUE = 'seo-ping';
+export const WEBHOOK_QUEUE = 'webhook';
 
 interface RootProps {
   title?: string;
   description?: string;
 }
 
+/** Full flattened text content for full-text search. */
+export function extractSearchText(puckData: unknown): string {
+  return collectTexts(puckData).join(' ').replace(/\s+/g, ' ');
+}
+
 /** First ~155 chars of textual content (Text/Heading props), for meta description fallback. */
 export function extractDescription(puckData: unknown): string {
+  const joined = collectTexts(puckData).join(' ').replace(/\s+/g, ' ');
+  return joined.length > 155 ? `${joined.slice(0, 152)}…` : joined;
+}
+
+function collectTexts(puckData: unknown): string[] {
   const texts: string[] = [];
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) return node.forEach(walk);
     if (!node || typeof node !== 'object') return;
     const obj = node as Record<string, unknown>;
-    if (typeof obj.text === 'string' && obj.text.trim()) texts.push(obj.text.trim());
+    if (typeof obj.text === 'string' && obj.text.trim()) {
+      // richtext stores HTML — strip tags for search/description
+      texts.push(obj.text.replace(/<[^>]+>/g, ' ').trim());
+    }
     for (const value of Object.values(obj)) {
       if (typeof value === 'object' && value !== null) walk(value);
     }
   };
   walk((puckData as { content?: unknown }).content);
-  const joined = texts.join(' ').replace(/\s+/g, ' ');
-  return joined.length > 155 ? `${joined.slice(0, 152)}…` : joined;
+  return texts;
 }
 
 @Injectable()
@@ -36,6 +49,7 @@ export class PublishService {
     @Inject(DB) private readonly db: Db,
     @Inject(REVALIDATE_CLIENT) private readonly revalidate: RevalidateClient,
     @Optional() @InjectQueue(SEO_PING_QUEUE) private readonly seoPing?: Queue,
+    @Optional() @InjectQueue(WEBHOOK_QUEUE) private readonly webhookQueue?: Queue,
   ) {}
 
   async publish(pageLocaleId: string, versionId: string) {
@@ -58,6 +72,10 @@ export class PublishService {
       // empty description hurts SEO scores — fall back to page text content
       description: rootProps.description || extractDescription(version.puckData) || '',
     };
+    const searchText = [seo.title, seo.description, extractSearchText(version.puckData)]
+      .filter(Boolean)
+      .join(' ')
+      .slice(0, 50_000);
 
     const publishedAt = await this.db.transaction(async (tx) => {
       await tx
@@ -82,10 +100,11 @@ export class PublishService {
           versionId,
           puckData: version.puckData,
           seo,
+          searchText,
         })
         .onConflictDoUpdate({
           target: [publishedPages.siteId, publishedPages.locale, publishedPages.path],
-          set: { versionId, puckData: version.puckData, seo, publishedAt: new Date() },
+          set: { versionId, puckData: version.puckData, seo, searchText, publishedAt: new Date() },
         })
         .returning();
       return snapshot!.publishedAt;
@@ -94,6 +113,12 @@ export class PublishService {
     // after commit — stale-until-retry on failure, never a failed publish
     await this.revalidate.invalidate(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path));
     await this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path);
+    await this.dispatchWebhooks(ctx.page.siteId, 'page.published', {
+      pageId: ctx.page.id,
+      locale: ctx.locale.locale,
+      path,
+      versionId,
+    });
 
     return { versionId, publishedAt };
   }
@@ -120,7 +145,27 @@ export class PublishService {
 
     await this.revalidate.invalidate(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path));
     await this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path);
+    await this.dispatchWebhooks(ctx.page.siteId, 'page.unpublished', {
+      pageId: ctx.page.id,
+      locale: ctx.locale.locale,
+      path,
+    });
     return { ok: true };
+  }
+
+  /** Fan out to subscribed webhook endpoints (delivered by the worker with retries). */
+  private async dispatchWebhooks(siteId: string, event: string, payload: Record<string, unknown>) {
+    if (!this.webhookQueue) return;
+    const subscribers = await this.db.query.webhooks.findMany({
+      where: and(eq(webhooks.siteId, siteId), eq(webhooks.active, true)),
+    });
+    for (const hook of subscribers.filter((h) => h.events.includes(event))) {
+      await this.webhookQueue.add(
+        'deliver',
+        { url: hook.url, secret: hook.secret, event, payload: { ...payload, siteId } },
+        { attempts: 5, backoff: { type: 'exponential', delay: 3000 } },
+      );
+    }
   }
 
   /** IndexNow notification (Bing/Yandex/Naver + ChatGPT search via Bing index). */

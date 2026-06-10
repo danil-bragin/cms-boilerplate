@@ -3,3 +3,4 @@ export * from './pages.js';
 export * from './publish.js';
 export * from './media.js';
 export * from './errors.js';
+export * from './admin.js';

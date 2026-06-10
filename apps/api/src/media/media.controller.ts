@@ -7,12 +7,13 @@ import {
   Inject,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { Throttle, seconds } from '@nestjs/throttler';
 import { createZodDto } from 'nestjs-zod';
-import { mediaListQuery, presignBody } from '@cms/contracts';
+import { mediaListQuery, presignBody, updateMediaBody } from '@cms/contracts';
 import type { AuthContext } from '@cms/auth';
 import { Roles } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
@@ -20,6 +21,7 @@ import { MediaService } from './media.service.js';
 
 class PresignDto extends createZodDto(presignBody) {}
 class MediaListQueryDto extends createZodDto(mediaListQuery) {}
+class UpdateMediaDto extends createZodDto(updateMediaBody) {}
 
 @Controller()
 export class MediaController {
@@ -46,6 +48,12 @@ export class MediaController {
   @Get('sites/:siteId/media')
   list(@Param('siteId', ParseUUIDPipe) siteId: string, @Query() query: MediaListQueryDto) {
     return this.mediaService.list(siteId, query);
+  }
+
+  @Patch('media/:id')
+  @Roles('cms-editor')
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() body: UpdateMediaDto) {
+    return this.mediaService.updateAlt(id, body.alt);
   }
 
   @Delete('media/:id')

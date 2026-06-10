@@ -100,6 +100,12 @@ export class MediaService {
     });
   }
 
+  async updateAlt(mediaId: string, alt: Record<string, string>) {
+    await this.mustGet(mediaId);
+    const [updated] = await this.db.update(media).set({ alt }).where(eq(media.id, mediaId)).returning();
+    return updated!;
+  }
+
   async delete(mediaId: string) {
     const row = await this.mustGet(mediaId);
     await this.s3.send(new DeleteObjectCommand({ Bucket: this.cfg.S3_BUCKET, Key: row.s3Key }));

@@ -79,6 +79,37 @@ const seoPingWorker = new Worker<SeoPingJob>(
   { connection, concurrency: 2 },
 );
 
+interface WebhookJob {
+  url: string;
+  secret: string;
+  event: string;
+  payload: Record<string, unknown>;
+}
+
+const webhookWorker = new Worker<WebhookJob>(
+  'webhook',
+  async (job) => {
+    const body = JSON.stringify({
+      event: job.data.event,
+      payload: job.data.payload,
+      deliveredAt: new Date().toISOString(),
+    });
+    const signature = createHmac('sha256', job.data.secret).update(body).digest('hex');
+    const res = await fetch(job.data.url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-cms-event': job.data.event,
+        'x-cms-signature': `sha256=${signature}`,
+      },
+      body,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`webhook ${job.data.url} returned ${res.status}`);
+  },
+  { connection, concurrency: 4 },
+);
+
 mediaWorker.on('failed', async (job, err) => {
   console.error(`media-process ${job?.id} failed: ${err.message}`);
   if (job && job.attemptsMade >= (job.opts.attempts ?? 1)) {
@@ -91,11 +122,19 @@ invalidationWorker.on('failed', (job, err) => {
 seoPingWorker.on('failed', (job, err) => {
   console.error(`seo-ping ${job?.id} failed: ${err.message}`);
 });
+webhookWorker.on('failed', (job, err) => {
+  console.error(`webhook ${job?.id} failed: ${err.message}`);
+});
 
-console.log('worker started: media-process, invalidation, seo-ping');
+console.log('worker started: media-process, invalidation, seo-ping, webhook');
 
 async function shutdown() {
-  await Promise.all([mediaWorker.close(), invalidationWorker.close(), seoPingWorker.close()]);
+  await Promise.all([
+    mediaWorker.close(),
+    invalidationWorker.close(),
+    seoPingWorker.close(),
+    webhookWorker.close(),
+  ]);
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

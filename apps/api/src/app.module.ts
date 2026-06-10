@@ -12,6 +12,7 @@ import { HealthController } from './health.controller.js';
 import { ContentModule } from './content/content.module.js';
 import { PublishModule } from './publish/publish.module.js';
 import { MediaModule } from './media/media.module.js';
+import { AdminModule } from './admin/admin.module.js';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { MediaModule } from './media/media.module.js';
     ContentModule,
     PublishModule,
     MediaModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [
