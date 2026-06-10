@@ -8,7 +8,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { and, desc, eq, lt } from 'drizzle-orm';
+import { and, desc, eq, lt, or } from 'drizzle-orm';
 import { media } from '@cms/db';
 import { MAX_UPLOAD_BYTES, type MediaListQuery, type PresignResult } from '@cms/contracts';
 import { CONFIG, type AppConfig } from '../config/config.js';
@@ -75,13 +75,27 @@ export class MediaService {
   }
 
   async list(siteId: string, query: MediaListQuery) {
+    // keyset pagination on (created_at, id) — matches the sort order, unlike a bare uuid cursor
+    let cursorCond;
+    if (query.cursor) {
+      const cursorRow = await this.db.query.media.findFirst({
+        where: eq(media.id, query.cursor),
+        columns: { createdAt: true, id: true },
+      });
+      if (cursorRow) {
+        cursorCond = or(
+          lt(media.createdAt, cursorRow.createdAt),
+          and(eq(media.createdAt, cursorRow.createdAt), lt(media.id, cursorRow.id)),
+        );
+      }
+    }
     return this.db.query.media.findMany({
       where: and(
         eq(media.siteId, siteId),
         query.status ? eq(media.status, query.status) : undefined,
-        query.cursor ? lt(media.id, query.cursor) : undefined,
+        cursorCond,
       ),
-      orderBy: desc(media.createdAt),
+      orderBy: [desc(media.createdAt), desc(media.id)],
       limit: query.limit,
     });
   }

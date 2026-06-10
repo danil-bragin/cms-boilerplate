@@ -73,7 +73,9 @@ describe('publish api', () => {
     });
     expect(version!.status).toBe('published');
 
-    expect(invalidate).toHaveBeenCalledWith([`page:${stack.siteId}:en:/pub`]);
+    expect(invalidate).toHaveBeenCalledWith(
+      expect.arrayContaining([`page:${stack.siteId}:en:/pub`, `alts:${pageId}`]),
+    );
   });
 
   it('saveDraft after publish creates v2', async () => {
@@ -137,6 +139,8 @@ describe('publish api', () => {
       where: and(eq(publishedPages.pageId, pageId), eq(publishedPages.locale, 'en')),
     });
     expect(snapshot).toBeUndefined();
-    expect(invalidate).toHaveBeenCalledWith([`page:${stack.siteId}:en:/pub`]);
+    expect(invalidate).toHaveBeenCalledWith(
+      expect.arrayContaining([`page:${stack.siteId}:en:/pub`]),
+    );
   });
 });

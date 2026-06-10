@@ -66,7 +66,7 @@ export class PublishService {
     });
 
     // after commit — stale-until-retry on failure, never a failed publish
-    await this.revalidate.invalidate([this.tag(ctx.page.siteId, ctx.locale.locale, path)]);
+    await this.revalidate.invalidate(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path));
 
     return { versionId, publishedAt };
   }
@@ -91,12 +91,26 @@ export class PublishService {
         );
     });
 
-    await this.revalidate.invalidate([this.tag(ctx.page.siteId, ctx.locale.locale, path)]);
+    await this.revalidate.invalidate(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path));
     return { ok: true };
   }
 
   private tag(siteId: string, locale: string, path: string) {
     return `page:${siteId}:${locale}:${path}`;
+  }
+
+  /**
+   * Publishing one locale changes the hreflang set of every sibling locale,
+   * so their cached HTML must be invalidated too, plus the alternates data tag.
+   */
+  private async tagsFor(pageId: string, siteId: string, locale: string, path: string): Promise<string[]> {
+    const siblings = await this.db.query.publishedPages.findMany({
+      where: eq(publishedPages.pageId, pageId),
+      columns: { locale: true, path: true },
+    });
+    const tags = new Set<string>([this.tag(siteId, locale, path), `alts:${pageId}`]);
+    for (const s of siblings) tags.add(this.tag(siteId, s.locale, s.path));
+    return [...tags];
   }
 
   /** slugOverride replaces the last path segment for localized URLs. */

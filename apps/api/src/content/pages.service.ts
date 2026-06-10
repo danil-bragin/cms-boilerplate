@@ -1,5 +1,5 @@
 import { ConflictException, Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { pages, pageLocales, pageVersions, publishedPages, sites } from '@cms/db';
 import type { LocaleSummary, PageSummary } from '@cms/contracts';
 import { DB, type Db } from '../db/db.module.js';
@@ -21,27 +21,46 @@ export class PagesService {
     });
     if (sitePages.length === 0) return [];
 
+    const pageIds = sitePages.map((p) => p.id);
     const locales = await this.db.query.pageLocales.findMany({
-      where: inArray(pageLocales.pageId, sitePages.map((p) => p.id)),
+      where: inArray(pageLocales.pageId, pageIds),
     });
+
+    // one query per concern instead of two queries per locale
+    const latestRows = locales.length
+      ? await this.db
+          .selectDistinctOn([pageVersions.pageLocaleId], {
+            pageLocaleId: pageVersions.pageLocaleId,
+            versionNo: pageVersions.versionNo,
+            status: pageVersions.status,
+          })
+          .from(pageVersions)
+          .where(inArray(pageVersions.pageLocaleId, locales.map((l) => l.id)))
+          .orderBy(pageVersions.pageLocaleId, sql`${pageVersions.versionNo} DESC`)
+      : [];
+    const latestByLocale = new Map(latestRows.map((r) => [r.pageLocaleId, r]));
+
+    const publishedRows = pageIds.length
+      ? await this.db
+          .select({
+            pageId: publishedPages.pageId,
+            locale: publishedPages.locale,
+            versionId: publishedPages.versionId,
+          })
+          .from(publishedPages)
+          .where(inArray(publishedPages.pageId, pageIds))
+      : [];
+    const publishedByKey = new Map(publishedRows.map((r) => [`${r.pageId}:${r.locale}`, r.versionId]));
 
     const summaries = new Map<string, LocaleSummary>();
     for (const loc of locales) {
-      const latest = await this.db.query.pageVersions.findFirst({
-        where: eq(pageVersions.pageLocaleId, loc.id),
-        orderBy: desc(pageVersions.versionNo),
-      });
-      const published = await this.db.query.publishedPages.findFirst({
-        where: eq(publishedPages.pageId, loc.pageId),
-        columns: { versionId: true, locale: true },
-      });
+      const latest = latestByLocale.get(loc.id);
       summaries.set(loc.id, {
         pageLocaleId: loc.id,
         locale: loc.locale,
         latestVersionNo: latest?.versionNo ?? 0,
         latestStatus: latest?.status ?? 'draft',
-        publishedVersionId:
-          published && published.locale === loc.locale ? published.versionId : null,
+        publishedVersionId: publishedByKey.get(`${loc.pageId}:${loc.locale}`) ?? null,
       });
     }
 

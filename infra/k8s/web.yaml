@@ -31,11 +31,11 @@ spec:
             requests: { cpu: "500m", memory: "512Mi" }
             limits: { cpu: "1", memory: "1Gi" }
           readinessProbe:
-            httpGet: { path: /en, port: 3000 }
+            httpGet: { path: /api/health, port: 3000 }
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            httpGet: { path: /en, port: 3000 }
+            httpGet: { path: /api/health, port: 3000 }
             initialDelaySeconds: 15
             periodSeconds: 20
 ---
