@@ -288,3 +288,11 @@ export async function deletePage(pageId: string) {
   revalidatePath('/admin');
   return result;
 }
+
+export async function duplicatePage(pageId: string, path: string, name: string) {
+  const result = await run(() =>
+    api(`/pages/${pageId}/duplicate`, { method: 'POST', body: JSON.stringify({ path, name }) }),
+  );
+  revalidatePath('/admin');
+  return result;
+}

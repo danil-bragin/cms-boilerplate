@@ -156,6 +156,21 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
       )}
       <button
         disabled={pending}
+        style={{ fontSize: 12, color: '#888', border: 'none', background: 'none', cursor: 'pointer' }}
+        onClick={() =>
+          startTransition(async () => {
+            const newPath = window.prompt('Path for the copy:', `${path === '/' ? '' : path}-copy`);
+            if (newPath) {
+              const { duplicatePage } = await import('@/app/admin/actions');
+              await duplicatePage(pageId, newPath, `Copy of ${path}`);
+            }
+          })
+        }
+      >
+        duplicate
+      </button>
+      <button
+        disabled={pending}
         style={{ fontSize: 12, color: '#c5221f', border: 'none', background: 'none', cursor: 'pointer' }}
         onClick={() =>
           startTransition(async () => {

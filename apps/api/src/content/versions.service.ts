@@ -39,7 +39,7 @@ export class VersionsService {
     puckData: PuckData,
     createdBy: string,
     baseVersionNo?: number,
-    baseUpdatedAt?: Date,
+    baseUpdatedAt?: Date | string,
   ) {
     await this.assertLocale(pageLocaleId);
     // richtext HTML from the editor is sanitized HERE, server-side — the only
@@ -62,7 +62,8 @@ export class VersionsService {
 
         if (latest && latest.status === 'draft') {
           // draft-vs-draft conflict detection: another editor saved since we loaded
-          if (baseUpdatedAt !== undefined && latest.updatedAt.getTime() !== baseUpdatedAt.getTime()) {
+          const base = baseUpdatedAt !== undefined ? new Date(baseUpdatedAt) : undefined;
+          if (base !== undefined && latest.updatedAt.getTime() !== base.getTime()) {
             throw new ConflictException({
               code: 'stale_draft',
               message: 'Draft was modified by another editor',

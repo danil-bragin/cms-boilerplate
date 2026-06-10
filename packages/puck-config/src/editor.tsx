@@ -132,6 +132,11 @@ export function createEditorConfig(
         },
         defaultProps: { alt: '', rounded: false, priority: false },
       },
+      Search: {
+        ...renderConfig.components.Search,
+        fields: { placeholder: { type: 'text', label: 'Placeholder' } },
+        defaultProps: { placeholder: 'Search…' },
+      },
       Button: {
         ...renderConfig.components.Button,
         fields: {

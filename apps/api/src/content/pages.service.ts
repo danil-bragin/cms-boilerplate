@@ -239,6 +239,47 @@ export class PagesService {
     return { tags, page: { ...page, path: newPath, name: body.name ?? page.name } };
   }
 
+  /** Copy a page: latest version of every locale becomes draft v1 of the copy. */
+  async duplicatePage(pageId: string, path: string, name: string, createdBy: string) {
+    const source = await this.db.query.pages.findFirst({ where: eq(pages.id, pageId) });
+    if (!source) throw new NotFoundException({ code: 'page_not_found', message: 'Page not found' });
+    const normalized = normalizePath(path);
+
+    try {
+      return await this.db.transaction(async (tx) => {
+        const [copy] = await tx
+          .insert(pages)
+          .values({ siteId: source.siteId, path: normalized, name })
+          .returning();
+        const locales = await tx.query.pageLocales.findMany({
+          where: eq(pageLocales.pageId, pageId),
+        });
+        for (const locale of locales) {
+          const latest = await tx.query.pageVersions.findFirst({
+            where: eq(pageVersions.pageLocaleId, locale.id),
+            orderBy: [sql`${pageVersions.versionNo} DESC`],
+          });
+          const [newLocale] = await tx
+            .insert(pageLocales)
+            .values({ pageId: copy!.id, locale: locale.locale, slugOverride: locale.slugOverride })
+            .returning();
+          await tx.insert(pageVersions).values({
+            pageLocaleId: newLocale!.id,
+            versionNo: 1,
+            puckData: latest?.puckData ?? { root: { props: {} }, content: [], zones: {} },
+            createdBy,
+          });
+        }
+        return copy!;
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException({ code: 'page_exists', message: `Page ${normalized} already exists` });
+      }
+      throw err;
+    }
+  }
+
   /** Delete a page entirely (cascades locales/versions/snapshots). */
   async deletePage(pageId: string) {
     const page = await this.db.query.pages.findFirst({ where: eq(pages.id, pageId) });

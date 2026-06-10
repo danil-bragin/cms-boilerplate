@@ -2,6 +2,7 @@ import type { Config, Fields } from '@puckeditor/core';
 import type { ColumnsProps, SectionProps } from './types.js';
 import type { Components, RootProps } from './types.js';
 import { imageUrl } from './image-url.js';
+import { SearchBox } from './components/search-box.js';
 
 /**
  * RSC-safe config: render functions only, no hooks, no client code.
@@ -91,6 +92,9 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
           />
         );
       },
+    },
+    Search: {
+      render: ({ placeholder }) => <SearchBox placeholder={placeholder || 'Search…'} />,
     },
     Button: {
       render: ({ label, href, variant }) => (

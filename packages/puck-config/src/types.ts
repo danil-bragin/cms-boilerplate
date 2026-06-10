@@ -43,6 +43,10 @@ export interface ImageProps {
   priority: boolean;
 }
 
+export interface SearchProps {
+  placeholder: string;
+}
+
 export interface ButtonProps {
   label: string;
   href: string;
@@ -56,6 +60,7 @@ export interface Components {
   Text: TextProps;
   Image: ImageProps;
   Button: ButtonProps;
+  Search: SearchProps;
 }
 
 export interface RootProps {

@@ -68,6 +68,17 @@ export class PagesController {
     return page;
   }
 
+  @Post('pages/:pageId/duplicate')
+  @Roles('cms-editor')
+  async duplicatePage(
+    @Param('pageId', ParseUUIDPipe) pageId: string,
+    @Body() body: CreatePageDto,
+    @CurrentUser() user: AuthContext,
+  ) {
+    await this.access.assertSiteAccess(user, await this.access.siteForPage(pageId));
+    return this.pagesService.duplicatePage(pageId, body.path, body.name, user.sub);
+  }
+
   @Delete('pages/:pageId')
   @Roles('cms-editor')
   async deletePage(@Param('pageId', ParseUUIDPipe) pageId: string, @CurrentUser() user: AuthContext) {
