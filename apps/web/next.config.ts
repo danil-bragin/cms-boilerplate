@@ -12,7 +12,11 @@ const config: NextConfig = {
       : undefined,
   cacheMaxMemorySize: 0,
   transpilePackages: ['@cms/puck-config', '@cms/db', '@cms/contracts', '@cms/auth'],
+  // memoizes client components (admin editor) automatically; public pages are
+  // RSC-only so the win is editor INP, at some build-time cost
+  reactCompiler: true,
   async headers() {
+    const imgproxy = process.env.NEXT_PUBLIC_IMGPROXY_URL ?? process.env.IMGPROXY_URL;
     return [
       {
         source: '/:path*',
@@ -20,6 +24,9 @@ const config: NextConfig = {
           // bfcache insurance: third-party scripts can't register unload handlers
           { key: 'Permissions-Policy', value: 'unload=()' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
+          // CDNs (Cloudflare et al.) lift Link headers into 103 Early Hints;
+          // nginx >=1.29.8 proxies them (see infra/nginx/nginx.conf)
+          ...(imgproxy ? [{ key: 'Link', value: `<${imgproxy}>; rel=preconnect` }] : []),
         ],
       },
     ];

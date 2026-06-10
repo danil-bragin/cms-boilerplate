@@ -13,6 +13,23 @@ interface RootProps {
   description?: string;
 }
 
+/** First ~155 chars of textual content (Text/Heading props), for meta description fallback. */
+export function extractDescription(puckData: unknown): string {
+  const texts: string[] = [];
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (!node || typeof node !== 'object') return;
+    const obj = node as Record<string, unknown>;
+    if (typeof obj.text === 'string' && obj.text.trim()) texts.push(obj.text.trim());
+    for (const value of Object.values(obj)) {
+      if (typeof value === 'object' && value !== null) walk(value);
+    }
+  };
+  walk((puckData as { content?: unknown }).content);
+  const joined = texts.join(' ').replace(/\s+/g, ' ');
+  return joined.length > 155 ? `${joined.slice(0, 152)}…` : joined;
+}
+
 @Injectable()
 export class PublishService {
   constructor(
@@ -36,7 +53,11 @@ export class PublishService {
 
     const path = this.publicPath(ctx.page.path, ctx.locale.slugOverride);
     const rootProps = ((version.puckData as { root?: { props?: RootProps } }).root?.props ?? {});
-    const seo = { title: rootProps.title ?? ctx.page.name, description: rootProps.description ?? '' };
+    const seo = {
+      title: rootProps.title || ctx.page.name,
+      // empty description hurts SEO scores — fall back to page text content
+      description: rootProps.description || extractDescription(version.puckData) || '',
+    };
 
     const publishedAt = await this.db.transaction(async (tx) => {
       await tx

@@ -16,6 +16,7 @@
     "db:seed": "pnpm --filter @cms/db seed"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
     "prettier": "^3.5.0",
     "turbo": "^2.9.0",
     "typescript": "^5.8.0"

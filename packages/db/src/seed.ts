@@ -106,9 +106,12 @@ async function main() {
           pageId: page.id,
           versionId: version.id,
           puckData,
-          seo: { title: name },
+          seo: { title: name, description: 'Demo home page of the CMS boilerplate.' },
         })
-        .onConflictDoNothing();
+        .onConflictDoUpdate({
+          target: [publishedPages.siteId, publishedPages.locale, publishedPages.path],
+          set: { puckData, seo: { title: name, description: 'Demo home page of the CMS boilerplate.' } },
+        });
     }
   }
 

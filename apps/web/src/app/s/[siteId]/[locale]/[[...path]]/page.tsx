@@ -71,7 +71,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   return {
     metadataBase: new URL(origin),
     title,
-    description,
+    ...(description ? { description } : {}),
     alternates: { canonical, languages },
     robots: {
       index: true,

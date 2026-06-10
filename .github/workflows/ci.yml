@@ -37,3 +37,44 @@ jobs:
       - run: pnpm turbo build --filter=@cms/db --filter=@cms/contracts --filter=@cms/auth
       - name: API integration tests (Testcontainers)
         run: pnpm --filter api test
+
+  lighthouse:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_DB: cms, POSTGRES_USER: cms, POSTGRES_PASSWORD: cms }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cms" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6380:6379"]
+    env:
+      DATABASE_URL: postgres://cms:cms@localhost:5433/cms
+      REDIS_URL: redis://localhost:6380
+      SESSION_SECRET: "0000000000000000000000000000000000000000000000000000000000000000"
+      REVALIDATE_SECRET: "1111111111111111111111111111111111111111111111111111111111111111"
+      KEYCLOAK_ISSUER: http://localhost:8080/realms/cms
+      S3_BUCKET: cms-media
+      IMGPROXY_URL: http://localhost:8081
+      IMGPROXY_KEY: "00"
+      IMGPROXY_SALT: "00"
+      API_URL: http://localhost:3001
+      WEB_INTERNAL_URL: http://localhost:3000
+      SITE_URL_SCHEME: http
+      SITE_URL_PORT: "3000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate && pnpm db:seed
+      - run: pnpm turbo build --filter=web
+      - name: Start web
+        run: |
+          (cd apps/web && pnpm start &)
+          timeout 60 bash -c 'until curl -sf http://localhost:3000/api/health; do sleep 1; done'
+      - name: Lighthouse CI (perf/seo/a11y budgets)
+        run: pnpm exec lhci autorun

@@ -177,7 +177,33 @@ Per site (host-aware route handlers — the file conventions can't see Host):
   (`IMGPROXY_AUTO_AVIF/WEBP`); your CDN must cache with `Vary: Accept`.
 - `next start` compresses with gzip only — front it with
   [`infra/nginx/nginx.conf`](infra/nginx/nginx.conf) (brotli_static for
-  immutable assets, brotli/zstd for HTML) and set `compress: false`.
+  immutable assets, brotli/zstd for HTML, 103 Early Hints proxying for
+  nginx ≥1.29.8) and set `compress: false`.
+- Every response carries `Link: <imgproxy>; rel=preconnect` — CDNs
+  (Cloudflare et al.) lift it into a 103 Early Hints response automatically.
+- **React Compiler** is on (`reactCompiler: true`) — auto-memoizes the admin
+  editor's client components.
+- **Lighthouse CI** runs in the pipeline with hard budgets
+  (perf ≥0.95, SEO ≥0.95, a11y ≥0.9, LCP ≤2.5s, CLS ≤0.1, TBT ≤200ms —
+  current scores: 100/100/100, LCP ~460ms, CLS 0). `pnpm exec lhci autorun`
+  locally against a running prod build.
+
+### Why NOT `cacheComponents` (evaluated, rejected)
+
+Attempted and reverted with evidence: this architecture serves **fully static
+pages from a full-HTML Redis cache** — a hit costs zero React work. Under
+`cacheComponents` the cacheable unit is the RSC payload, so every request
+would still pay flight→HTML SSR rendering; root params demand build-time
+sentinel values (no DB at image-build time), every dynamic admin route needs
+Suspense restructuring, and the Redis cache handler's cacheComponents path
+crashed (node-redis hScan API). Net effect for a no-dynamic-holes CMS page:
+strictly slower and more fragile. Revisit only when pages grow per-request
+dynamic islands (personalization, A/B).
+
+**Dependency pin that matters:** `redis` is pinned to `4.7.0` in `apps/web` —
+it is the peer of `@trieb.work/nextjs-turbo-redis-cache`; node-redis v5/v6
+change the `hScan` cursor API and silently kill the cache handler (pages
+permanently MISS). Do not bump it independently of the handler.
 
 ## Abuse resistance on the read path
 
