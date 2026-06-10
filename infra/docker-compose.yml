@@ -19,7 +19,17 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--maxmemory-policy", "noeviction"]
+    # noeviction: required by BullMQ; Exe keyspace events: required by the Next.js
+    # Redis cache handler. In production run two Redis instances: one for queues
+    # (noeviction) and one for the page cache (allkeys-lru is fine there).
+    command:
+      [
+        "redis-server",
+        "--maxmemory-policy",
+        "noeviction",
+        "--notify-keyspace-events",
+        "Exe",
+      ]
     ports:
       - "${REDIS_HOST_PORT:-6380}:6379"
     volumes:
