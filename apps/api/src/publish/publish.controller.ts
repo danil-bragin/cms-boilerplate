@@ -1,4 +1,4 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Inject, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { publishBody } from '@cms/contracts';
 import { Roles } from '../auth/auth.guard.js';
@@ -8,7 +8,7 @@ class PublishDto extends createZodDto(publishBody) {}
 
 @Controller('page-locales')
 export class PublishController {
-  constructor(private readonly publishService: PublishService) {}
+  constructor(@Inject(PublishService) private readonly publishService: PublishService) {}
 
   @Post(':id/publish')
   @Roles('cms-editor')

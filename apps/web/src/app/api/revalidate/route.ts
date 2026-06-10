@@ -26,8 +26,9 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   for (const tag of parsed.data.tags) {
-    // 'max' profile = invalidate immediately, serve stale while regenerating
-    revalidateTag(tag, 'max');
+    // expire:0 = hard invalidation — publish must be read-your-writes,
+    // SWR ('max') would serve one stale response after publishing
+    revalidateTag(tag, { expire: 0 });
   }
   return NextResponse.json({ revalidated: true, tags: parsed.data.tags });
 }

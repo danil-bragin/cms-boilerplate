@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  Inject,
   Param,
   ParseUUIDPipe,
   Post,
@@ -21,7 +22,7 @@ class MediaListQueryDto extends createZodDto(mediaListQuery) {}
 
 @Controller()
 export class MediaController {
-  constructor(private readonly mediaService: MediaService) {}
+  constructor(@Inject(MediaService) private readonly mediaService: MediaService) {}
 
   @Post('sites/:siteId/media/presign')
   @Roles('cms-editor')

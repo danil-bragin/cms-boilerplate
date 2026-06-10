@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import { addLocaleBody, createPageBody, saveDraftBody } from '@cms/contracts';
 import type { AuthContext } from '@cms/auth';
@@ -13,7 +13,7 @@ class SaveDraftDto extends createZodDto(saveDraftBody) {}
 
 @Controller('sites')
 export class SitesController {
-  constructor(private readonly pagesService: PagesService) {}
+  constructor(@Inject(PagesService) private readonly pagesService: PagesService) {}
 
   @Get()
   listSites() {
@@ -39,8 +39,8 @@ export class SitesController {
 @Controller()
 export class PagesController {
   constructor(
-    private readonly pagesService: PagesService,
-    private readonly versionsService: VersionsService,
+    @Inject(PagesService) private readonly pagesService: PagesService,
+    @Inject(VersionsService) private readonly versionsService: VersionsService,
   ) {}
 
   @Post('pages/:pageId/locales')
