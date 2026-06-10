@@ -9,6 +9,7 @@ import { AuthGuard } from './auth/auth.guard.js';
 import { HealthController } from './health.controller.js';
 import { ContentModule } from './content/content.module.js';
 import { PublishModule } from './publish/publish.module.js';
+import { MediaModule } from './media/media.module.js';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { PublishModule } from './publish/publish.module.js';
     }),
     ContentModule,
     PublishModule,
+    MediaModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -66,6 +66,15 @@ export async function startStack(opts: StackOptions): Promise<TestStack> {
       .withEnvironment({ MINIO_ROOT_USER: 'minioadmin', MINIO_ROOT_PASSWORD: 'minioadmin' })
       .withExposedPorts(9000)
       .start();
+    const { S3Client, CreateBucketCommand } = await import('@aws-sdk/client-s3');
+    const s3 = new S3Client({
+      endpoint: `http://${minio.getHost()}:${minio.getMappedPort(9000)}`,
+      region: 'us-east-1',
+      forcePathStyle: true,
+      credentials: { accessKeyId: 'minioadmin', secretAccessKey: 'minioadmin' },
+    });
+    await s3.send(new CreateBucketCommand({ Bucket: 'cms-media' }));
+    s3.destroy();
   }
 
   const url = pg.getConnectionUri();
