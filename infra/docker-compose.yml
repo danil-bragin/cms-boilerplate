@@ -120,7 +120,7 @@ services:
 
   jaeger:
     # opt-in: docker compose --profile observability up -d
-    # then set OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 for api/worker/web
+    # traces: OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
     image: jaegertracing/all-in-one:latest
     profiles: [observability]
     environment:
@@ -129,6 +129,32 @@ services:
       - "16686:16686" # UI
       - "4318:4318" # OTLP http
       - "4317:4317" # OTLP grpc
+
+  prometheus:
+    # metrics: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://localhost:9090/api/v1/otlp/v1/metrics (signal-specific env is used as-is, no path appended)
+    image: prom/prometheus:latest
+    profiles: [observability]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.enable-otlp-receiver
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    profiles: [observability]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    volumes:
+      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./observability/grafana/dashboards/provider.yml:/etc/grafana/provisioning/dashboards/provider.yml:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3030:3000"
+    depends_on: [prometheus, jaeger]
 
 volumes:
   pg-data:

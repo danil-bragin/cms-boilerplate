@@ -35,3 +35,4 @@ Generate real secrets: `openssl rand -hex 32`.
 
 Observability quickstart: `docker compose -f infra/docker-compose.yml --profile observability up -d jaeger`,
 set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`, open http://localhost:16686.
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | api, worker | Metrics OTLP target. NB: signal-specific endpoints are used **as-is** — include the full `/api/v1/otlp/v1/metrics` path for Prometheus. |

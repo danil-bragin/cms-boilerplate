@@ -1,0 +1,10 @@
+# Prometheus 3.x with OTLP ingestion: api/worker/web push OTel metrics straight in.
+global:
+  scrape_interval: 15s
+storage:
+  tsdb:
+    out_of_order_time_window: 30m
+otlp:
+  # accept all resource attributes as labels for the demo setup
+  promote_resource_attributes:
+    - service.name

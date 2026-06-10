@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-web
+spec:
+  {{- if not .Values.web.hpa.enabled }}
+  replicas: {{ .Values.web.replicas }}
+  {{- end }}
+  selector:
+    matchLabels: { app: {{ .Release.Name }}-web }
+  template:
+    metadata:
+      labels: { app: {{ .Release.Name }}-web }
+    spec:
+      containers:
+        - name: web
+          image: {{ .Values.images.web }}
+          ports: [{ containerPort: 3000 }]
+          envFrom:
+            - configMapRef: { name: {{ .Values.existingConfigMap }} }
+            - secretRef: { name: {{ .Values.existingSecret }} }
+          resources: {{- toYaml .Values.web.resources | nindent 12 }}
+          readinessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-web
+spec:
+  selector: { app: {{ .Release.Name }}-web }
+  ports: [{ port: 80, targetPort: 3000 }]
+{{- if .Values.web.hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Release.Name }}-web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Release.Name }}-web
+  minReplicas: {{ .Values.web.hpa.minReplicas }}
+  maxReplicas: {{ .Values.web.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.web.hpa.targetCPUUtilizationPercentage }}
+{{- end }}

@@ -1,0 +1,42 @@
+# Images are built from apps/*/Dockerfile
+images:
+  web: cms-web:latest
+  api: cms-api:latest
+  worker: cms-worker:latest
+  imgproxy: ghcr.io/imgproxy/imgproxy:v4
+
+web:
+  replicas: 3
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+api:
+  replicas: 2
+  resources:
+    requests: { cpu: 250m, memory: 256Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+worker:
+  replicas: 1
+  resources:
+    requests: { cpu: 500m, memory: 512Mi }
+    limits: { cpu: "1", memory: 1Gi }
+
+imgproxy:
+  replicas: 2
+  resources:
+    requests: { cpu: 500m, memory: 256Mi }
+    limits: { cpu: "2", memory: 1Gi }
+
+# Name of an existing Secret with the variables from infra/env.md
+# (DATABASE_URL, REDIS_URL, SESSION_SECRET, REVALIDATE_SECRET, S3_*, KEYCLOAK_*,
+#  IMGPROXY_KEY/SALT, NEXT_SERVER_ACTIONS_ENCRYPTION_KEY, …)
+existingSecret: cms-secrets
+# Name of an existing ConfigMap with non-secret env
+existingConfigMap: cms-config
