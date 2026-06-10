@@ -11,7 +11,6 @@ export const localeSchema = z
   .regex(/^[a-z]{2}(-[A-Z]{2})?$/, 'locale must look like "en" or "en-US"');
 
 export const createPageBody = z.object({
-  siteId: z.uuid(),
   path: pathSchema,
   name: z.string().min(1).max(200),
 });

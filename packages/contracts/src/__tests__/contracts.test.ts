@@ -39,16 +39,10 @@ describe('pathSchema', () => {
 });
 
 describe('createPageBody', () => {
-  it('requires siteId uuid, valid path, non-empty name', () => {
-    expect(() =>
-      createPageBody.parse({ siteId: 'not-uuid', path: '/x', name: 'X' }),
-    ).toThrow();
-    expect(() =>
-      createPageBody.parse({ siteId: '4d4a0f0a-9b6c-4f6e-8a3a-2b1c3d4e5f60', path: 'x', name: 'X' }),
-    ).toThrow();
-    expect(
-      createPageBody.parse({ siteId: '4d4a0f0a-9b6c-4f6e-8a3a-2b1c3d4e5f60', path: '/x', name: 'X' }),
-    ).toBeTruthy();
+  it('requires valid path and non-empty name', () => {
+    expect(() => createPageBody.parse({ path: 'x', name: 'X' })).toThrow();
+    expect(() => createPageBody.parse({ path: '/x', name: '' })).toThrow();
+    expect(createPageBody.parse({ path: '/x', name: 'X' })).toBeTruthy();
   });
 });
 
@@ -65,7 +59,7 @@ describe('saveDraftBody', () => {
 });
 
 describe('presignBody', () => {
-  const base = { siteId: '4d4a0f0a-9b6c-4f6e-8a3a-2b1c3d4e5f60', filename: 'a.png', size: 100 };
+  const base = { filename: 'a.png', size: 100 };
 
   it('accepts allowed image mimes', () => {
     expect(presignBody.parse({ ...base, mime: 'image/png' }).mime).toBe('image/png');

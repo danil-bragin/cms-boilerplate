@@ -1,0 +1,138 @@
+import { ConflictException, Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { pages, pageLocales, pageVersions, publishedPages, sites } from '@cms/db';
+import type { LocaleSummary, PageSummary } from '@cms/contracts';
+import { DB, type Db } from '../db/db.module.js';
+
+const EMPTY_PUCK_DATA = { root: { props: {} }, content: [], zones: {} };
+
+@Injectable()
+export class PagesService {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  async listSites() {
+    return this.db.query.sites.findMany();
+  }
+
+  async listPages(siteId: string): Promise<PageSummary[]> {
+    const sitePages = await this.db.query.pages.findMany({
+      where: eq(pages.siteId, siteId),
+      orderBy: pages.path,
+    });
+    if (sitePages.length === 0) return [];
+
+    const locales = await this.db.query.pageLocales.findMany({
+      where: inArray(pageLocales.pageId, sitePages.map((p) => p.id)),
+    });
+
+    const summaries = new Map<string, LocaleSummary>();
+    for (const loc of locales) {
+      const latest = await this.db.query.pageVersions.findFirst({
+        where: eq(pageVersions.pageLocaleId, loc.id),
+        orderBy: desc(pageVersions.versionNo),
+      });
+      const published = await this.db.query.publishedPages.findFirst({
+        where: eq(publishedPages.pageId, loc.pageId),
+        columns: { versionId: true, locale: true },
+      });
+      summaries.set(loc.id, {
+        pageLocaleId: loc.id,
+        locale: loc.locale,
+        latestVersionNo: latest?.versionNo ?? 0,
+        latestStatus: latest?.status ?? 'draft',
+        publishedVersionId:
+          published && published.locale === loc.locale ? published.versionId : null,
+      });
+    }
+
+    return sitePages.map((p) => ({
+      id: p.id,
+      siteId: p.siteId,
+      path: p.path,
+      name: p.name,
+      locales: locales.filter((l) => l.pageId === p.id).map((l) => summaries.get(l.id)!),
+    }));
+  }
+
+  async createPage(siteId: string, path: string, name: string, createdBy: string): Promise<PageSummary> {
+    const site = await this.db.query.sites.findFirst({ where: eq(sites.id, siteId) });
+    if (!site) throw new NotFoundException({ code: 'site_not_found', message: 'Site not found' });
+
+    const normalized = normalizePath(path);
+
+    return this.db.transaction(async (tx) => {
+      const existing = await tx.query.pages.findFirst({
+        where: and(eq(pages.siteId, siteId), eq(pages.path, normalized)),
+      });
+      if (existing) {
+        throw new ConflictException({ code: 'page_exists', message: `Page ${normalized} already exists` });
+      }
+
+      const [page] = await tx.insert(pages).values({ siteId, path: normalized, name }).returning();
+      const [locale] = await tx
+        .insert(pageLocales)
+        .values({ pageId: page!.id, locale: site.defaultLocale })
+        .returning();
+      const [version] = await tx
+        .insert(pageVersions)
+        .values({
+          pageLocaleId: locale!.id,
+          versionNo: 1,
+          puckData: EMPTY_PUCK_DATA,
+          createdBy,
+        })
+        .returning();
+
+      return {
+        id: page!.id,
+        siteId,
+        path: normalized,
+        name,
+        locales: [
+          {
+            pageLocaleId: locale!.id,
+            locale: locale!.locale,
+            latestVersionNo: version!.versionNo,
+            latestStatus: version!.status,
+            publishedVersionId: null,
+          },
+        ],
+      };
+    });
+  }
+
+  async addLocale(pageId: string, locale: string, createdBy: string) {
+    const page = await this.db.query.pages.findFirst({ where: eq(pages.id, pageId) });
+    if (!page) throw new NotFoundException({ code: 'page_not_found', message: 'Page not found' });
+
+    const site = await this.db.query.sites.findFirst({ where: eq(sites.id, page.siteId) });
+    if (!site!.locales.includes(locale)) {
+      throw new BadRequestException({
+        code: 'locale_not_allowed',
+        message: `Locale ${locale} is not configured for this site`,
+      });
+    }
+
+    return this.db.transaction(async (tx) => {
+      const existing = await tx.query.pageLocales.findFirst({
+        where: and(eq(pageLocales.pageId, pageId), eq(pageLocales.locale, locale)),
+      });
+      if (existing) {
+        throw new ConflictException({ code: 'locale_exists', message: `Locale ${locale} already added` });
+      }
+      const [row] = await tx.insert(pageLocales).values({ pageId, locale }).returning();
+      await tx.insert(pageVersions).values({
+        pageLocaleId: row!.id,
+        versionNo: 1,
+        puckData: EMPTY_PUCK_DATA,
+        createdBy,
+      });
+      return row!;
+    });
+  }
+}
+
+export function normalizePath(path: string): string {
+  if (path === '/') return path;
+  return '/' + path.split('/').filter(Boolean).join('/');
+}

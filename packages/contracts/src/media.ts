@@ -12,7 +12,6 @@ export const IMAGE_MIMES = [
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 export const presignBody = z.object({
-  siteId: z.uuid(),
   filename: z.string().min(1).max(255),
   mime: z.enum(IMAGE_MIMES),
   size: z.number().int().positive().max(MAX_UPLOAD_BYTES),
