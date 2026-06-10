@@ -48,6 +48,8 @@ export interface StackOptions {
   metadata: ModuleMetadata;
   withRedis?: boolean;
   withMinio?: boolean;
+  /** Provider overrides applied via overrideProvider (e.g. fake revalidate client). */
+  overrides?: Array<{ token: unknown; value: unknown }>;
 }
 
 export async function startStack(opts: StackOptions): Promise<TestStack> {
@@ -105,15 +107,24 @@ export async function startStack(opts: StackOptions): Promise<TestStack> {
     exports: [CONFIG, DB, AUTH_VERIFIER],
   };
 
-  const moduleRef = await Test.createTestingModule({
+  const { BullModule } = await import('@nestjs/bullmq');
+  const bullImports = redis
+    ? [BullModule.forRoot({ connection: { host: redis.getHost(), port: redis.getMappedPort(6379) } })]
+    : [];
+
+  let builder = Test.createTestingModule({
     ...opts.metadata,
-    imports: [globals, ...(opts.metadata.imports ?? [])],
+    imports: [globals, ...bullImports, ...(opts.metadata.imports ?? [])],
     providers: [
       ...(opts.metadata.providers ?? []),
       { provide: APP_GUARD, useClass: AuthGuard },
       { provide: APP_PIPE, useClass: ZodValidationPipe },
     ],
-  }).compile();
+  });
+  for (const o of opts.overrides ?? []) {
+    builder = builder.overrideProvider(o.token).useValue(o.value);
+  }
+  const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication();
   await app.init();

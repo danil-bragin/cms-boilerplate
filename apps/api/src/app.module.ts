@@ -8,6 +8,7 @@ import { DbModule } from './db/db.module.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { HealthController } from './health.controller.js';
 import { ContentModule } from './content/content.module.js';
+import { PublishModule } from './publish/publish.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ContentModule } from './content/content.module.js';
       useFactory: (cfg: AppConfig) => ({ connection: { url: cfg.REDIS_URL } }),
     }),
     ContentModule,
+    PublishModule,
   ],
   controllers: [HealthController],
   providers: [
