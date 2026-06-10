@@ -113,6 +113,18 @@ services:
       timeout: 3s
       retries: 10
 
+  jaeger:
+    # opt-in: docker compose --profile observability up -d
+    # then set OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 for api/worker/web
+    image: jaegertracing/all-in-one:latest
+    profiles: [observability]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # UI
+      - "4318:4318" # OTLP http
+      - "4317:4317" # OTLP grpc
+
 volumes:
   pg-data:
   redis-data:

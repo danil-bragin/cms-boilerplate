@@ -115,5 +115,32 @@ scaling notes in [`infra/k8s/`](infra/k8s/README.md). Key production rules:
 - `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` identical across web replicas.
 - Size Postgres `max_connections` against replica count × pool size (10);
   add PgBouncer before adding replicas.
+- API rate limiting is Redis-backed (`@nestjs/throttler`): 300 req/min/IP
+  globally, 30/min on media presign — limits hold across replicas. Web traffic
+  should be rate-limited at the CDN/WAF/ingress, not in Node.
 - Design docs: [`docs/superpowers/specs/`](docs/superpowers/specs/),
   plan: [`docs/superpowers/plans/`](docs/superpowers/plans/).
+
+## Observability
+
+OpenTelemetry everywhere, off by default. Set `OTEL_EXPORTER_OTLP_ENDPOINT`
+(api + worker: NodeSDK with http/express/pg/ioredis auto-instrumentation;
+web: `@vercel/otel` via `instrumentation.ts`) and traces/metrics flow to any
+OTLP collector. Local quickstart:
+
+```bash
+docker compose -f infra/docker-compose.yml --profile observability up -d jaeger
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 pnpm dev
+# UI: http://localhost:16686
+```
+
+## Abuse resistance on the read path
+
+- Unknown hosts, unknown locales and **unpublished paths are refused in the
+  proxy** (~1ms, in-memory set of published paths, 5s TTL stale-while-refresh) —
+  scanners never reach the renderer and cannot grow the page cache.
+- Trade-off: a freshly published page may 404 for ≤5s on a replica that has not
+  refreshed its path set yet. Lower `PATHS_TTL_MS` in `src/proxy.ts` if needed.
+- Cache stampede after invalidation is bounded by design: Next coalesces
+  concurrent renders per path in-process, so a publish costs at most one
+  render per replica, each a single-row Postgres read.

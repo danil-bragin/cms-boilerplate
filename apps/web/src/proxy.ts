@@ -1,29 +1,36 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createDb, sites, type Db } from '@cms/db';
+import { createDb, publishedPages, sites, type Db } from '@cms/db';
 
 /**
- * Host → site resolution on the hot path.
+ * Host → site resolution and fast-404 on the hot path.
  *
  * Public pages are served from a full-page ISR cache keyed by the rewritten
  * internal URL /s/{siteId}/{locale}/{path}. The page component itself never
  * reads request headers, so Next can cache the rendered HTML in the shared
  * Redis cache handler — a cache hit costs zero React rendering on any replica.
  *
- * The site map lives in process memory with a short TTL: sites change rarely,
- * the map is tiny, and this keeps the per-request overhead at a Map lookup
- * instead of a Postgres/Redis roundtrip.
+ * Two in-process maps, both refreshed stale-while-revalidate (never a stampede,
+ * never a blocking refresh after first load):
+ *
+ * - site map (host → site), TTL 30s
+ * - published path set ("{siteId}:{locale}:{path}"), TTL 5s — requests for
+ *   unknown paths are refused HERE, before any rendering, so scanners cannot
+ *   grow the page cache with 404 entries. The unique index on
+ *   published_pages(site_id, locale, path) makes the refresh an index-only scan.
+ *
+ * Trade-off: a freshly published page can 404 for up to PATHS_TTL_MS on a
+ * replica that hasn't refreshed yet. 5s is invisible to editors in practice;
+ * lower it if it ever matters. Refresh failures fail OPEN (requests render).
  */
 
 const SITE_MAP_TTL_MS = 30_000;
+const PATHS_TTL_MS = 5_000;
 
 interface SiteEntry {
   id: string;
   defaultLocale: string;
   locales: string[];
 }
-
-let cached: { map: Map<string, SiteEntry>; expiresAt: number } | null = null;
-let refreshing: Promise<Map<string, SiteEntry>> | null = null;
 
 const globalForDb = globalThis as unknown as { __proxyDb?: Db };
 
@@ -34,7 +41,38 @@ function db(): Db {
   return globalForDb.__proxyDb;
 }
 
-async function loadSiteMap(): Promise<Map<string, SiteEntry>> {
+interface Swr<T> {
+  value: T | null;
+  expiresAt: number;
+  refreshing: Promise<T> | null;
+}
+
+function swrCell<T>(load: () => Promise<T>, ttlMs: number): () => Promise<T | null> {
+  const cell: Swr<T> = { value: null, expiresAt: 0, refreshing: null };
+  return async () => {
+    const now = Date.now();
+    if (cell.value !== null && cell.expiresAt > now) return cell.value;
+    cell.refreshing ??= load()
+      .then((v) => {
+        cell.value = v;
+        cell.expiresAt = Date.now() + ttlMs;
+        return v;
+      })
+      .catch(() => {
+        // fail open: keep serving the stale value, retry on the next request
+        cell.expiresAt = Date.now() + 1_000;
+        return cell.value as T;
+      })
+      .finally(() => {
+        cell.refreshing = null;
+      });
+    // stale value present → serve it while the refresh runs in the background
+    if (cell.value !== null) return cell.value;
+    return cell.refreshing;
+  };
+}
+
+const siteMap = swrCell(async () => {
   const rows = await db().select().from(sites);
   const map = new Map<string, SiteEntry>();
   for (const row of rows) {
@@ -43,24 +81,18 @@ async function loadSiteMap(): Promise<Map<string, SiteEntry>> {
     }
   }
   return map;
-}
+}, SITE_MAP_TTL_MS);
 
-async function siteMap(): Promise<Map<string, SiteEntry>> {
-  const now = Date.now();
-  if (cached && cached.expiresAt > now) return cached.map;
-  // serve stale while one refresh is in flight — never stampede the DB
-  if (cached && refreshing) return cached.map;
-  refreshing ??= loadSiteMap()
-    .then((map) => {
-      cached = { map, expiresAt: Date.now() + SITE_MAP_TTL_MS };
-      return map;
+const publishedPaths = swrCell(async () => {
+  const rows = await db()
+    .select({
+      siteId: publishedPages.siteId,
+      locale: publishedPages.locale,
+      path: publishedPages.path,
     })
-    .finally(() => {
-      refreshing = null;
-    });
-  if (cached) return cached.map;
-  return refreshing;
-}
+    .from(publishedPages);
+  return new Set(rows.map((r) => `${r.siteId}:${r.locale}:${r.path}`));
+}, PATHS_TTL_MS);
 
 export default async function proxy(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
@@ -71,9 +103,8 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
   }
 
   const host = (req.headers.get('host') ?? '').split(':')[0] ?? '';
-  const site = (await siteMap()).get(host);
+  const site = (await siteMap())?.get(host);
   if (!site) {
-    // unknown host: refuse before any rendering — keeps scanners out of the page cache
     return new NextResponse('Not found', { status: 404 });
   }
 
@@ -83,9 +114,19 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(url, 307);
   }
 
-  const locale = pathname.split('/')[1] ?? '';
+  const segments = pathname.split('/');
+  const locale = segments[1] ?? '';
   if (!site.locales.includes(locale)) {
     return new NextResponse('Not found', { status: 404 });
+  }
+
+  // fast-404: refuse unpublished paths before rendering (fail open on null)
+  const paths = await publishedPaths();
+  if (paths) {
+    const pagePath = '/' + segments.slice(2).join('/');
+    if (!paths.has(`${site.id}:${locale}:${pagePath === '/' ? '/' : pagePath.replace(/\/$/, '')}`)) {
+      return new NextResponse('Not found', { status: 404 });
+    }
   }
 
   const url = req.nextUrl.clone();

@@ -10,6 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Throttle, seconds } from '@nestjs/throttler';
 import { createZodDto } from 'nestjs-zod';
 import { mediaListQuery, presignBody } from '@cms/contracts';
 import type { AuthContext } from '@cms/auth';
@@ -26,6 +27,7 @@ export class MediaController {
 
   @Post('sites/:siteId/media/presign')
   @Roles('cms-editor')
+  @Throttle({ default: { ttl: seconds(60), limit: 30 } })
   presign(
     @Param('siteId', ParseUUIDPipe) siteId: string,
     @Body() body: PresignDto,

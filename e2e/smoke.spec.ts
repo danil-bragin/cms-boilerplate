@@ -50,7 +50,17 @@ test('editor flow: login → create page → edit → publish → public', async
   await page.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(page.getByText('· published')).toBeVisible({ timeout: 10_000 });
 
-  // public page serves the new content with the published SEO title
+  // public page serves the new content with the published SEO title.
+  // the proxy's published-path set refreshes within 5s — poll through the window
+  await expect
+    .poll(
+      async () => {
+        const res = await page.request.get(`/en/${slug}`);
+        return res.status();
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(200);
   await page.goto(`/en/${slug}`);
   await expect(page).toHaveTitle(pageTitle);
 });

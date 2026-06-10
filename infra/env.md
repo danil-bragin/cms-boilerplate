@@ -25,3 +25,13 @@
 
 Dev quickstart: `cp .env.example .env && docker compose -f infra/docker-compose.yml up -d`.
 Generate real secrets: `openssl rand -hex 32`.
+
+## Optional
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | web, api, worker | OTLP collector URL (e.g. `http://localhost:4318` for the compose Jaeger). Unset = tracing fully disabled, zero overhead. |
+| `OTEL_SERVICE_NAME` | web, api, worker | Override the default service names (`cms-web` / `cms-api` / `cms-worker`). |
+
+Observability quickstart: `docker compose -f infra/docker-compose.yml --profile observability up -d jaeger`,
+set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`, open http://localhost:16686.

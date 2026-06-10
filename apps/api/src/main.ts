@@ -1,3 +1,4 @@
+import './otel.js'; // must be first: patches http/pg/ioredis at load time
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';

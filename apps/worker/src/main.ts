@@ -1,3 +1,4 @@
+import './otel.js'; // must be first: patches http/pg/ioredis at load time
 import { Worker, type Job } from 'bullmq';
 import {
   GetObjectCommand,
