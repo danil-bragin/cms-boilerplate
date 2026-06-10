@@ -1,0 +1,23 @@
+{
+  "name": "cms-boilerplate",
+  "private": true,
+  "packageManager": "pnpm@10.21.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "db:generate": "pnpm --filter @cms/db generate",
+    "db:migrate": "pnpm --filter @cms/db migrate",
+    "db:seed": "pnpm --filter @cms/db seed"
+  },
+  "devDependencies": {
+    "prettier": "^3.5.0",
+    "turbo": "^2.9.0",
+    "typescript": "^5.8.0"
+  }
+}
