@@ -1,7 +1,9 @@
 import type { NextConfig } from 'next';
+import path from 'node:path';
 
 const config: NextConfig = {
   output: 'standalone',
+  turbopack: { root: path.join(__dirname, '../..') },
   // Shared ISR/data cache across replicas. In dev the default in-memory
   // handler is fine; in production every replica must point at the same Redis.
   cacheHandler:

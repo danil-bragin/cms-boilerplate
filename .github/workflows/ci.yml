@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DATABASE_URL: postgres://cms:cms@localhost:5433/cms
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build typecheck
+      - name: Unit tests (no containers)
+        run: pnpm turbo test --filter=@cms/contracts --filter=@cms/auth --filter=@cms/puck-config --filter=worker
+
+  integration:
+    runs-on: ubuntu-latest
+    # Testcontainers needs the host docker daemon — available on ubuntu runners
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo build --filter=@cms/db --filter=@cms/contracts --filter=@cms/auth
+      - name: API integration tests (Testcontainers)
+        run: pnpm --filter api test
