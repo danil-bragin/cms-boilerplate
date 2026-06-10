@@ -70,7 +70,6 @@ services:
       - "8080:8080"
     volumes:
       - ./keycloak:/opt/keycloak/data/import:ro
-      - keycloak-data:/opt/keycloak/data/h2
     healthcheck:
       test:
         [
@@ -108,4 +107,3 @@ volumes:
   pg-data:
   redis-data:
   minio-data:
-  keycloak-data:
