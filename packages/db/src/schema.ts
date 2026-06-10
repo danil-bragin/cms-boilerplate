@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
@@ -5,6 +6,7 @@ import {
   jsonb,
   integer,
   bigint,
+  boolean,
   timestamp,
   pgEnum,
   uniqueIndex,
@@ -13,6 +15,8 @@ import {
 
 export const versionStatus = pgEnum('version_status', ['draft', 'published', 'archived']);
 export const mediaStatus = pgEnum('media_status', ['uploading', 'ready', 'failed']);
+export const redirectStatus = pgEnum('redirect_status', ['301', '302']);
+export const scheduleStatus = pgEnum('schedule_status', ['pending', 'done', 'cancelled', 'failed']);
 
 export const sites = pgTable('sites', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -99,11 +103,17 @@ export const publishedPages = pgTable(
       .references(() => pageVersions.id),
     puckData: jsonb('puck_data').notNull(),
     seo: jsonb('seo').notNull().default({}),
+    /** Flattened text content for full-text search; filled at publish. */
+    searchText: text('search_text').notNull().default(''),
     publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('published_pages_uq').on(t.siteId, t.locale, t.path),
     index('published_pages_page_idx').on(t.pageId),
+    index('published_pages_search_idx').using(
+      'gin',
+      sql`to_tsvector('simple', ${t.searchText})`,
+    ),
   ],
 );
 
@@ -127,3 +137,72 @@ export const media = pgTable('media', {
     .references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const redirects = pgTable(
+  'redirects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    siteId: uuid('site_id')
+      .notNull()
+      .references(() => sites.id, { onDelete: 'cascade' }),
+    /** Incoming public path incl. locale prefix, e.g. /en/old-page */
+    fromPath: text('from_path').notNull(),
+    /** Target: absolute URL or site-relative path */
+    toPath: text('to_path').notNull(),
+    status: redirectStatus('status').notNull().default('301'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('redirects_site_from_uq').on(t.siteId, t.fromPath)],
+);
+
+export const menus = pgTable(
+  'menus',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    siteId: uuid('site_id')
+      .notNull()
+      .references(() => sites.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull(),
+    /** [{label, href, children?: [{label, href}]}] — per-locale labels live in items */
+    items: jsonb('items').notNull().default([]),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('menus_site_slug_uq').on(t.siteId, t.slug)],
+);
+
+export const webhooks = pgTable('webhooks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  siteId: uuid('site_id')
+    .notNull()
+    .references(() => sites.id, { onDelete: 'cascade' }),
+  url: text('url').notNull(),
+  /** HMAC-SHA256 signing secret for the X-CMS-Signature header */
+  secret: text('secret').notNull(),
+  /** subscribed events: page.published | page.unpublished */
+  events: text('events').array().notNull().default(['page.published']),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const scheduledPublishes = pgTable(
+  'scheduled_publishes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    pageLocaleId: uuid('page_locale_id')
+      .notNull()
+      .references(() => pageLocales.id, { onDelete: 'cascade' }),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => pageVersions.id, { onDelete: 'cascade' }),
+    publishAt: timestamp('publish_at', { withTimezone: true }).notNull(),
+    status: scheduleStatus('status').notNull().default('pending'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('scheduled_publishes_locale_idx').on(t.pageLocaleId)],
+);
