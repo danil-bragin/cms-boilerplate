@@ -1,0 +1,65 @@
+# Reference deployment for the Next.js render layer.
+# Assumes a `cms-config` ConfigMap and `cms-secrets` Secret carrying the
+# variables documented in infra/env.md, and Redis/Postgres reachable in-cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms-web
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: cms-web }
+  template:
+    metadata:
+      labels: { app: cms-web }
+    spec:
+      containers:
+        - name: web
+          image: cms-web:latest
+          ports: [{ containerPort: 3000 }]
+          envFrom:
+            - configMapRef: { name: cms-config }
+            - secretRef: { name: cms-secrets }
+          env:
+            # MUST be identical across all web replicas, or server actions
+            # break mid-rollout ("Failed to find Server Action")
+            - name: NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: { name: cms-secrets, key: NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }
+          resources:
+            # one renderer ≈ one core: scale out, not up
+            requests: { cpu: "500m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /en, port: 3000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /en, port: 3000 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cms-web
+spec:
+  selector: { app: cms-web }
+  ports: [{ port: 80, targetPort: 3000 }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cms-web
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cms-web
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 }

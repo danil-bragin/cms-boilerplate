@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms-worker
+spec:
+  # scale on queue depth (KEDA ScaledObject on BullMQ keys) if media volume grows
+  replicas: 1
+  selector:
+    matchLabels: { app: cms-worker }
+  template:
+    metadata:
+      labels: { app: cms-worker }
+    spec:
+      containers:
+        - name: worker
+          image: cms-worker:latest
+          envFrom:
+            - configMapRef: { name: cms-config }
+            - secretRef: { name: cms-secrets }
+          resources:
+            # sharp is CPU/memory hungry on large images
+            requests: { cpu: "500m", memory: "512Mi" }
+            limits: { cpu: "1", memory: "1Gi" }

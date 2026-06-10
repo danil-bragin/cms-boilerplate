@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imgproxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: imgproxy }
+  template:
+    metadata:
+      labels: { app: imgproxy }
+    spec:
+      containers:
+        - name: imgproxy
+          image: ghcr.io/imgproxy/imgproxy:v4
+          ports: [{ containerPort: 8080 }]
+          env:
+            - name: IMGPROXY_USE_S3
+              value: "true"
+            - name: IMGPROXY_KEY
+              valueFrom: { secretKeyRef: { name: cms-secrets, key: IMGPROXY_KEY } }
+            - name: IMGPROXY_SALT
+              valueFrom: { secretKeyRef: { name: cms-secrets, key: IMGPROXY_SALT } }
+            # on AWS prefer IRSA over static keys
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom: { secretKeyRef: { name: cms-secrets, key: S3_ACCESS_KEY_ID, optional: true } }
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: cms-secrets, key: S3_SECRET_ACCESS_KEY, optional: true } }
+          resources:
+            requests: { cpu: "500m", memory: "256Mi" }
+            limits: { cpu: "2", memory: "1Gi" }
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: imgproxy
+spec:
+  selector: { app: imgproxy }
+  ports: [{ port: 80, targetPort: 8080 }]
