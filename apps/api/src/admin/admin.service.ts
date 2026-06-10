@@ -68,7 +68,11 @@ export class AdminService {
         domains: body.domains ?? site.domains,
         defaultLocale,
         locales,
-        settings: body.seo ? { ...settings, seo: body.seo } : settings,
+        settings: {
+          ...settings,
+          ...(body.seo ? { seo: body.seo } : {}),
+          ...(body.localeFallback !== undefined ? { localeFallback: body.localeFallback } : {}),
+        },
       })
       .where(eq(sites.id, siteId))
       .returning();

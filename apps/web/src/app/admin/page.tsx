@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { LocaleSummary, PageSummary, SiteDto } from '@cms/contracts';
 import { listPages, listSites } from './actions';
-import { CreatePageForm, AddLocaleButton, SlugOverrideButton } from '@/components/admin/page-forms';
+import { CreatePageForm, AddLocaleButton, SlugOverrideButton, PageRowActions } from '@/components/admin/page-forms';
 
 function LocaleChip({ pageId, summary }: { pageId: string; summary: LocaleSummary }) {
   const published = summary.publishedVersionId !== null;
@@ -30,7 +30,10 @@ function PageRow({ page, site }: { page: PageSummary; site: SiteDto }) {
   const missing = site.locales.filter((l) => !page.locales.some((pl) => pl.locale === l));
   return (
     <tr style={{ borderTop: '1px solid #eee' }}>
-      <td style={{ padding: 8, fontFamily: 'monospace' }}>{page.path}</td>
+      <td style={{ padding: 8, fontFamily: 'monospace' }}>
+        {page.path}
+        <PageRowActions pageId={page.id} path={page.path} />
+      </td>
       <td style={{ padding: 8 }}>{page.name}</td>
       <td style={{ padding: 8 }}>
         {page.locales.map((l) => (

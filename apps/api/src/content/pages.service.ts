@@ -1,7 +1,7 @@
 import { ConflictException, Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { isUniqueViolation } from '../db/pg-errors.js';
-import { and, eq, inArray, sql } from 'drizzle-orm';
-import { pages, pageLocales, pageVersions, publishedPages, siteMembers, sites } from '@cms/db';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { pages, pageLocales, pageVersions, publishedPages, redirects, siteMembers, sites } from '@cms/db';
 import type { LocaleSummary, PageSummary } from '@cms/contracts';
 import type { AuthContext } from '@cms/auth';
 import { DB, type Db } from '../db/db.module.js';
@@ -171,6 +171,95 @@ export class PagesService {
       return row!;
     });
   }
+
+  /**
+   * Rename/move a page. Published snapshots move to the new public path with
+   * automatic 301 redirects from the old URLs; affected cache tags returned
+   * by the caller's revalidation.
+   */
+  async renamePage(pageId: string, body: { path?: string; name?: string }) {
+    const page = await this.db.query.pages.findFirst({ where: eq(pages.id, pageId) });
+    if (!page) throw new NotFoundException({ code: 'page_not_found', message: 'Page not found' });
+    const newPath = body.path ? normalizePath(body.path) : page.path;
+
+    const tags: string[] = [];
+    try {
+      await this.db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT id FROM pages WHERE id = ${pageId} FOR UPDATE`);
+        await tx
+          .update(pages)
+          .set({ path: newPath, name: body.name ?? page.name })
+          .where(eq(pages.id, pageId));
+
+        if (newPath === page.path) return;
+
+        const locales = await tx.query.pageLocales.findMany({
+          where: eq(pageLocales.pageId, pageId),
+        });
+        const published = await tx.query.publishedPages.findMany({
+          where: eq(publishedPages.pageId, pageId),
+        });
+        for (const row of published) {
+          const locale = locales.find((l) => l.locale === row.locale);
+          const target = publicPath(newPath, locale?.slugOverride ?? null);
+          if (target === row.path) continue;
+          await tx
+            .update(publishedPages)
+            .set({ path: target })
+            .where(
+              and(
+                eq(publishedPages.pageId, pageId),
+                eq(publishedPages.locale, row.locale),
+                eq(publishedPages.path, row.path),
+              ),
+            );
+          await tx
+            .insert(redirects)
+            .values({
+              siteId: page.siteId,
+              fromPath: `/${row.locale}${row.path === '/' ? '' : row.path}`,
+              toPath: `/${row.locale}${target === '/' ? '' : target}`,
+              status: '301',
+              createdBy: 'system',
+            })
+            .onConflictDoUpdate({
+              target: [redirects.siteId, redirects.fromPath],
+              set: { toPath: `/${row.locale}${target === '/' ? '' : target}` },
+            });
+          tags.push(`page:${page.siteId}:${row.locale}:${row.path}`);
+          tags.push(`page:${page.siteId}:${row.locale}:${target}`);
+        }
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException({ code: 'page_exists', message: `Page ${newPath} already exists` });
+      }
+      throw err;
+    }
+    return { tags, page: { ...page, path: newPath, name: body.name ?? page.name } };
+  }
+
+  /** Delete a page entirely (cascades locales/versions/snapshots). */
+  async deletePage(pageId: string) {
+    const page = await this.db.query.pages.findFirst({ where: eq(pages.id, pageId) });
+    if (!page) throw new NotFoundException({ code: 'page_not_found', message: 'Page not found' });
+    const published = await this.db.query.publishedPages.findMany({
+      where: eq(publishedPages.pageId, pageId),
+      columns: { locale: true, path: true },
+    });
+    await this.db.delete(pages).where(eq(pages.id, pageId));
+    return {
+      tags: published.map((r) => `page:${page.siteId}:${r.locale}:${r.path}`),
+    };
+  }
+}
+
+/** slugOverride replaces the last path segment for localized URLs. */
+export function publicPath(pagePath: string, slugOverride: string | null): string {
+  if (!slugOverride || pagePath === '/') return pagePath;
+  const segments = pagePath.split('/');
+  segments[segments.length - 1] = slugOverride;
+  return segments.join('/');
 }
 
 export function normalizePath(path: string): string {

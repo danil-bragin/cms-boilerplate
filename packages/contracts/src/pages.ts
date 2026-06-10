@@ -19,6 +19,12 @@ export const addLocaleBody = z.object({
   locale: localeSchema,
 });
 
+export const updatePageBody = z.object({
+  path: pathSchema.optional(),
+  name: z.string().min(1).max(200).optional(),
+});
+export type UpdatePageBody = z.infer<typeof updatePageBody>;
+
 export const saveDraftBody = z.object({
   puckData: puckDataSchema,
   /** Optimistic concurrency: latest versionNo the client based its edit on. */

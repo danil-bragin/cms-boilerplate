@@ -4,6 +4,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  type OnModuleInit,
 } from '@nestjs/common';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Queue, type Job } from 'bullmq';
@@ -15,11 +16,37 @@ import { PublishService } from './publish.service.js';
 export const SCHEDULE_QUEUE = 'scheduled-publish';
 
 @Injectable()
-export class ScheduleService {
+export class ScheduleService implements OnModuleInit {
   constructor(
     @Inject(DB) private readonly db: Db,
     @InjectQueue(SCHEDULE_QUEUE) private readonly queue: Queue,
   ) {}
+
+  /** Reconciliation sweep: re-arms pending schedules whose delayed job was lost
+   *  (Redis wipe, crash between insert and enqueue). Runs every 5 minutes. */
+  async onModuleInit() {
+    await this.queue.upsertJobScheduler('schedule-sweep', { every: 5 * 60_000 }, { name: 'sweep' });
+  }
+
+  async sweep() {
+    const pending = await this.db.query.scheduledPublishes.findMany({
+      where: eq(scheduledPublishes.status, 'pending'),
+    });
+    for (const row of pending) {
+      const existing = await this.queue.getJob(row.id);
+      if (existing) continue;
+      await this.queue.add(
+        'publish',
+        { scheduleId: row.id },
+        {
+          jobId: row.id,
+          delay: Math.max(0, row.publishAt.getTime() - Date.now()),
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 10_000 },
+        },
+      );
+    }
+  }
 
   async list(pageLocaleId: string) {
     return this.db.query.scheduledPublishes.findMany({
@@ -101,11 +128,15 @@ export class ScheduleProcessor extends WorkerHost {
   constructor(
     @Inject(DB) private readonly db: Db,
     @Inject(PublishService) private readonly publishService: PublishService,
+    @Inject(ScheduleService) private readonly scheduleService: ScheduleService,
   ) {
     super();
   }
 
   async process(job: Job<{ scheduleId: string }>): Promise<void> {
+    if (job.name === 'sweep') {
+      return this.scheduleService.sweep();
+    }
     const row = await this.db.query.scheduledPublishes.findFirst({
       where: eq(scheduledPublishes.id, job.data.scheduleId),
     });

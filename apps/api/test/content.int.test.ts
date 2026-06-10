@@ -11,7 +11,7 @@ describe('content api', () => {
   let http: () => request.Agent;
 
   beforeAll(async () => {
-    stack = await startStack({ metadata: { imports: [ContentModule] } });
+    stack = await startStack({ metadata: { imports: [ContentModule] }, withRedis: true });
     http = () => request(stack.app.getHttpServer());
   }, 120_000);
 

@@ -274,3 +274,17 @@ export async function addMember(siteId: string, email: string, role: 'editor' | 
 export async function removeMember(memberId: string) {
   return run(() => api(`/members/${memberId}`, { method: 'DELETE' }));
 }
+
+// --- page lifecycle ---
+
+export async function renamePage(pageId: string, body: { path?: string; name?: string }) {
+  const result = await run(() => api(`/pages/${pageId}`, { method: 'PATCH', body: JSON.stringify(body) }));
+  revalidatePath('/admin');
+  return result;
+}
+
+export async function deletePage(pageId: string) {
+  const result = await run(() => api(`/pages/${pageId}`, { method: 'DELETE' }));
+  revalidatePath('/admin');
+  return result;
+}

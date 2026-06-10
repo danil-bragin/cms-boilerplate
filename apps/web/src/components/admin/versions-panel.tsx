@@ -118,7 +118,9 @@ export function VersionsPanel({
             <strong>v{v.versionNo}</strong>
             <span style={{ color: '#777' }}>{v.status}</span>
           </div>
-          <div style={{ color: '#777', fontSize: 12 }}>{new Date(v.createdAt).toLocaleString()}</div>
+          <div style={{ color: '#777', fontSize: 12 }}>
+            {new Date(v.createdAt).toLocaleString()} · {v.createdBy}
+          </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
             <button
               disabled={busy !== null}

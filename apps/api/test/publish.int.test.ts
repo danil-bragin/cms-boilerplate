@@ -190,4 +190,45 @@ describe('publish api', () => {
     expect(redirect?.toPath).toBe('/en/verschoben');
     expect(redirect?.status).toBe('301');
   });
+
+  it('page rename moves the snapshot and creates an auto-301', async () => {
+    const page = await http()
+      .post(`/sites/${stack.siteId}/pages`)
+      .set(AUTH)
+      .send({ path: '/old-home', name: 'OldHome' })
+      .expect(201);
+    const localeId = page.body.locales[0].pageLocaleId;
+    const draft = await http()
+      .put(`/page-locales/${localeId}/draft`)
+      .set(AUTH)
+      .send({ puckData: puck('renameme') })
+      .expect(200);
+    await http()
+      .post(`/page-locales/${localeId}/publish`)
+      .set(AUTH)
+      .send({ versionId: draft.body.id })
+      .expect(201);
+
+    await http().patch(`/pages/${page.body.id}`).set(AUTH).send({ path: '/new-home' }).expect(200);
+
+    const moved = await stack.db.query.publishedPages.findFirst({
+      where: eq(publishedPages.path, '/new-home'),
+    });
+    expect(moved).toBeTruthy();
+    const old = await stack.db.query.publishedPages.findFirst({
+      where: eq(publishedPages.path, '/old-home'),
+    });
+    expect(old).toBeUndefined();
+    const { redirects } = await import('@cms/db');
+    const r = await stack.db.query.redirects.findFirst({ where: eq(redirects.fromPath, '/en/old-home') });
+    expect(r?.toPath).toBe('/en/new-home');
+
+    // delete removes everything
+    await http().delete(`/pages/${page.body.id}`).set(AUTH).expect(200);
+    const gone = await stack.db.query.publishedPages.findFirst({
+      where: eq(publishedPages.path, '/new-home'),
+    });
+    expect(gone).toBeUndefined();
+  });
+
 });

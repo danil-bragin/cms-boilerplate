@@ -20,6 +20,8 @@ export const updateSiteBody = z.object({
   defaultLocale: localeSchema.optional(),
   locales: z.array(localeSchema).min(1).optional(),
   seo: z.object({ blockAiTraining: z.boolean() }).optional(),
+  /** redirect untranslated paths to the default locale instead of 404 */
+  localeFallback: z.boolean().optional(),
 });
 
 export const updatePageLocaleBody = z.object({

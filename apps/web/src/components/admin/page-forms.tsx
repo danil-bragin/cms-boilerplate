@@ -119,3 +119,55 @@ export function SlugOverrideButton({
     </span>
   );
 }
+
+export function PageRowActions({ pageId, path }: { pageId: string; path: string }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(path);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <span style={{ display: 'inline-flex', gap: 6, marginLeft: 8 }}>
+      {editing ? (
+        <>
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            pattern="^/([a-z0-9-]+(/[a-z0-9-]+)*)?$"
+            style={{ padding: 2, fontSize: 12, width: 140, fontFamily: 'monospace' }}
+          />
+          <button
+            disabled={pending}
+            style={{ fontSize: 12 }}
+            onClick={() =>
+              startTransition(async () => {
+                const { renamePage } = await import('@/app/admin/actions');
+                await renamePage(pageId, { path: value });
+                setEditing(false);
+              })
+            }
+          >
+            ✓ move (auto-301)
+          </button>
+        </>
+      ) : (
+        <button onClick={() => setEditing(true)} style={{ fontSize: 12, color: '#888', border: 'none', background: 'none', cursor: 'pointer' }}>
+          rename
+        </button>
+      )}
+      <button
+        disabled={pending}
+        style={{ fontSize: 12, color: '#c5221f', border: 'none', background: 'none', cursor: 'pointer' }}
+        onClick={() =>
+          startTransition(async () => {
+            if (window.confirm(`Delete ${path} with all versions and locales?`)) {
+              const { deletePage } = await import('@/app/admin/actions');
+              await deletePage(pageId);
+            }
+          })
+        }
+      >
+        delete
+      </button>
+    </span>
+  );
+}

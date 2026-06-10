@@ -30,6 +30,8 @@ interface SiteEntry {
   id: string;
   defaultLocale: string;
   locales: string[];
+  /** settings.localeFallback: redirect untranslated paths to the default locale */
+  localeFallback: boolean;
 }
 
 const globalForDb = globalThis as unknown as { __proxyDb?: Db };
@@ -76,8 +78,14 @@ const siteMap = swrCell(async () => {
   const rows = await db().select().from(sites);
   const map = new Map<string, SiteEntry>();
   for (const row of rows) {
+    const settings = row.settings as { localeFallback?: boolean };
     for (const domain of row.domains) {
-      map.set(domain, { id: row.id, defaultLocale: row.defaultLocale, locales: row.locales });
+      map.set(domain, {
+        id: row.id,
+        defaultLocale: row.defaultLocale,
+        locales: row.locales,
+        localeFallback: Boolean(settings.localeFallback),
+      });
     }
   }
   return map;
@@ -146,7 +154,18 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
   const paths = await publishedPaths();
   if (paths) {
     const pagePath = '/' + segments.slice(2).join('/');
-    if (!paths.has(`${site.id}:${locale}:${pagePath === '/' ? '/' : pagePath.replace(/\/$/, '')}`)) {
+    const normalized = pagePath === '/' ? '/' : pagePath.replace(/\/$/, '');
+    if (!paths.has(`${site.id}:${locale}:${normalized}`)) {
+      // optional fallback: untranslated page exists in the default locale → redirect
+      if (
+        site.localeFallback &&
+        locale !== site.defaultLocale &&
+        paths.has(`${site.id}:${site.defaultLocale}:${normalized}`)
+      ) {
+        const url = req.nextUrl.clone();
+        url.pathname = `/${site.defaultLocale}${normalized === '/' ? '' : normalized}`;
+        return NextResponse.redirect(url, 307);
+      }
       return new NextResponse('Not found', { status: 404 });
     }
   }

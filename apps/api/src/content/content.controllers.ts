@@ -1,16 +1,18 @@
-import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
-import { addLocaleBody, createPageBody, saveDraftBody } from '@cms/contracts';
+import { addLocaleBody, createPageBody, saveDraftBody, updatePageBody } from '@cms/contracts';
 import type { AuthContext } from '@cms/auth';
 import { Roles } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { PagesService } from './pages.service.js';
 import { VersionsService } from './versions.service.js';
 import { SiteAccessService } from '../auth/site-access.service.js';
+import { REVALIDATE_CLIENT, type RevalidateClient } from '../publish/revalidate.client.js';
 
 class CreatePageDto extends createZodDto(createPageBody) {}
 class AddLocaleDto extends createZodDto(addLocaleBody) {}
 class SaveDraftDto extends createZodDto(saveDraftBody) {}
+class UpdatePageDto extends createZodDto(updatePageBody) {}
 
 @Controller('sites')
 @Roles('cms-viewer', 'cms-editor')
@@ -50,7 +52,30 @@ export class PagesController {
     @Inject(PagesService) private readonly pagesService: PagesService,
     @Inject(VersionsService) private readonly versionsService: VersionsService,
     @Inject(SiteAccessService) private readonly access: SiteAccessService,
+    @Inject(REVALIDATE_CLIENT) private readonly revalidate: RevalidateClient,
   ) {}
+
+  @Patch('pages/:pageId')
+  @Roles('cms-editor')
+  async renamePage(
+    @Param('pageId', ParseUUIDPipe) pageId: string,
+    @Body() body: UpdatePageDto,
+    @CurrentUser() user: AuthContext,
+  ) {
+    await this.access.assertSiteAccess(user, await this.access.siteForPage(pageId));
+    const { tags, page } = await this.pagesService.renamePage(pageId, body);
+    if (tags.length) await this.revalidate.invalidate(tags);
+    return page;
+  }
+
+  @Delete('pages/:pageId')
+  @Roles('cms-editor')
+  async deletePage(@Param('pageId', ParseUUIDPipe) pageId: string, @CurrentUser() user: AuthContext) {
+    await this.access.assertSiteAccess(user, await this.access.siteForPage(pageId));
+    const { tags } = await this.pagesService.deletePage(pageId);
+    if (tags.length) await this.revalidate.invalidate(tags);
+    return { ok: true };
+  }
 
   @Post('pages/:pageId/locales')
   @Roles('cms-editor')
