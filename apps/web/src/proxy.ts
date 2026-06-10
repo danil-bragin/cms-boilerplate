@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createDb, publishedPages, sites, type Db } from '@cms/db';
+import { createDb, publishedPages, redirects, sites, type Db } from '@cms/db';
 
 /**
  * Host → site resolution and fast-404 on the hot path.
@@ -83,6 +83,13 @@ const siteMap = swrCell(async () => {
   return map;
 }, SITE_MAP_TTL_MS);
 
+const redirectMap = swrCell(async () => {
+  const rows = await db()
+    .select({ siteId: redirects.siteId, fromPath: redirects.fromPath, toPath: redirects.toPath, status: redirects.status })
+    .from(redirects);
+  return new Map(rows.map((r) => [`${r.siteId}:${r.fromPath}`, { to: r.toPath, status: r.status }]));
+}, PATHS_TTL_MS);
+
 const publishedPaths = swrCell(async () => {
   const rows = await db()
     .select({
@@ -112,6 +119,16 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
     const url = req.nextUrl.clone();
     url.pathname = `/${site.defaultLocale}`;
     return NextResponse.redirect(url, 307);
+  }
+
+  // editor-managed redirects win over everything (path moves, vanity URLs)
+  const redirectsByPath = await redirectMap();
+  const redirect = redirectsByPath?.get(`${site.id}:${pathname}`);
+  if (redirect) {
+    const target = redirect.to.startsWith('http')
+      ? redirect.to
+      : new URL(redirect.to, req.nextUrl.origin).toString();
+    return NextResponse.redirect(target, redirect.status === '301' ? 308 : 307);
   }
 
   const segments = pathname.split('/');

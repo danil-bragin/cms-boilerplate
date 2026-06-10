@@ -14,13 +14,20 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function PreviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ versionId: string }>;
+  searchParams: Promise<{ token?: string }>;
 }) {
-  const session = await getSession({ refresh: true });
-  if (!session) redirect('/api/auth/login?returnTo=/admin');
-
   const { versionId } = await params;
+  const { token } = await searchParams;
+
+  // shareable link (HMAC token) or an authenticated editor session
+  const { verifyPreviewToken } = await import('@/lib/preview-token');
+  if (!token || !verifyPreviewToken(versionId, token)) {
+    const session = await getSession({ refresh: true });
+    if (!session) redirect('/api/auth/login?returnTo=/admin');
+  }
   const version = await db().query.pageVersions.findFirst({
     where: eq(pageVersions.id, versionId),
   });
