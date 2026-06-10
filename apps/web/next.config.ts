@@ -12,6 +12,18 @@ const config: NextConfig = {
       : undefined,
   cacheMaxMemorySize: 0,
   transpilePackages: ['@cms/puck-config', '@cms/db', '@cms/contracts', '@cms/auth'],
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // bfcache insurance: third-party scripts can't register unload handlers
+          { key: 'Permissions-Policy', value: 'unload=()' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+    ];
+  },
 };
 
 export default config;

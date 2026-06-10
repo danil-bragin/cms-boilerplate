@@ -4,7 +4,13 @@ import { notFound } from 'next/navigation';
 import { Render } from '@puckeditor/core/rsc';
 import { renderConfig } from '@cms/puck-config/render';
 import '@/lib/images.server';
-import { getPublishedAlternates, getPublishedPage } from '@/lib/page-data';
+import {
+  getPublishedAlternates,
+  getPublishedPage,
+  getSiteById,
+  siteOrigin,
+} from '@/lib/page-data';
+import { JsonLd } from '@/components/seo/json-ld';
 
 /**
  * Internal route behind the proxy rewrite (/en/about → /s/{siteId}/en/about).
@@ -34,20 +40,61 @@ const resolvePage = cache(async (siteId: string, locale: string, path: string) =
 
 const pagePath = (path: string[] | undefined) => '/' + (path ?? []).join('/');
 
+const publicUrl = (origin: string, locale: string, path: string) =>
+  `${origin}/${locale}${path === '/' ? '' : path}`;
+
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { siteId, locale, path } = await params;
   const page = await resolvePage(siteId, locale, pagePath(path));
   if (!page) return {};
+
+  const site = await getSiteById(siteId);
+  if (!site) return {};
+  const origin = siteOrigin(site);
   const alternates = await getPublishedAlternates(page.pageId);
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+  const canonical = publicUrl(origin, page.locale, page.path);
+
+  // hreflang via link tags (single channel — not duplicated in the sitemap);
+  // x-default points at the site's default locale when that variant exists
+  const languages: Record<string, string> = Object.fromEntries(
+    alternates.map((a) => [a.locale, publicUrl(origin, a.locale, a.path)]),
+  );
+  const defaultVariant = alternates.find((a) => a.locale === site.defaultLocale);
+  if (defaultVariant) {
+    languages['x-default'] = publicUrl(origin, defaultVariant.locale, defaultVariant.path);
+  }
+
+  const title = page.seo.title ?? '';
+  const description = page.seo.description ?? '';
+  const ogImage = `${origin}/og/${page.pageId}?locale=${page.locale}&v=${page.publishedAt.getTime()}`;
+
   return {
-    title: page.seo.title,
-    description: page.seo.description,
-    alternates: {
-      canonical: `${base}/${page.locale}${page.path === '/' ? '' : page.path}`,
-      languages: Object.fromEntries(
-        alternates.map((a) => [a.locale, `${base}/${a.locale}${a.path === '/' ? '' : a.path}`]),
-      ),
+    metadataBase: new URL(origin),
+    title,
+    description,
+    alternates: { canonical, languages },
+    robots: {
+      index: true,
+      follow: true,
+      'max-snippet': -1,
+      'max-image-preview': 'large',
+      'max-video-preview': -1,
+    },
+    openGraph: {
+      type: 'website',
+      url: canonical,
+      siteName: site.slug,
+      title,
+      description,
+      locale: page.locale,
+      alternateLocale: alternates.map((a) => a.locale).filter((l) => l !== page.locale),
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImage],
     },
   };
 }
@@ -56,5 +103,26 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   const { siteId, locale, path } = await params;
   const page = await resolvePage(siteId, locale, pagePath(path));
   if (!page) notFound();
-  return <Render config={renderConfig} data={page.puckData as never} />;
+
+  const site = await getSiteById(siteId);
+  const origin = site ? siteOrigin(site) : '';
+
+  return (
+    <>
+      {site && (
+        <JsonLd
+          site={{ name: site.slug, origin }}
+          page={{
+            title: page.seo.title ?? '',
+            description: page.seo.description ?? '',
+            url: publicUrl(origin, page.locale, page.path),
+            locale: page.locale,
+            path: page.path,
+            publishedAt: page.publishedAt,
+          }}
+        />
+      )}
+      <Render config={renderConfig} data={page.puckData as never} />
+    </>
+  );
 }

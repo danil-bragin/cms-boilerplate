@@ -1,8 +1,44 @@
 import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
-import { publishedPages } from '@cms/db';
+import { publishedPages, sites } from '@cms/db';
 import { db } from './db';
+
+export interface SiteInfo {
+  id: string;
+  slug: string;
+  domains: string[];
+  defaultLocale: string;
+  locales: string[];
+  settings: Record<string, unknown>;
+}
+
+/** Site lookup for metadata (name, primary domain, locales). Tagged `sites`. */
+export const getSiteById = (siteId: string) =>
+  unstable_cache(
+    async (): Promise<SiteInfo | null> => {
+      const row = await db().query.sites.findFirst({ where: eq(sites.id, siteId) });
+      if (!row) return null;
+      return {
+        id: row.id,
+        slug: row.slug,
+        domains: row.domains,
+        defaultLocale: row.defaultLocale,
+        locales: row.locales,
+        settings: row.settings as Record<string, unknown>,
+      };
+    },
+    ['site-by-id', siteId],
+    { tags: ['sites'] },
+  )();
+
+/** Public origin for a site: primary domain = domains[0]. */
+export function siteOrigin(site: SiteInfo): string {
+  const scheme = process.env.SITE_URL_SCHEME ?? 'https';
+  const domain = site.domains[0] ?? 'localhost';
+  const port = process.env.SITE_URL_PORT ? `:${process.env.SITE_URL_PORT}` : '';
+  return `${scheme}://${domain}${port}`;
+}
 
 export interface PublishedPage {
   siteId: string;
@@ -11,6 +47,7 @@ export interface PublishedPage {
   pageId: string;
   puckData: unknown;
   seo: { title?: string; description?: string };
+  publishedAt: Date;
 }
 
 /**
@@ -40,6 +77,7 @@ export const getPublishedPage = (siteId: string, locale: string, path: string) =
         pageId: row.pageId,
         puckData: row.puckData,
         seo: row.seo as PublishedPage['seo'],
+        publishedAt: row.publishedAt,
       };
     },
     ['published-page', siteId, locale, path],

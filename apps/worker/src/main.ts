@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import { createDb, media } from '@cms/db';
 import { loadConfig } from './config.js';
 import { processImage } from './image.js';
+import { pingIndexNow, type SeoPingJob } from './indexnow.js';
 
 const cfg = loadConfig();
 const db = createDb(cfg.DATABASE_URL, { max: 5 });
@@ -72,6 +73,11 @@ async function invalidate(job: Job<{ tags: string[] }>) {
 
 const mediaWorker = new Worker('media-process', processMedia, { connection, concurrency: 4 });
 const invalidationWorker = new Worker('invalidation', invalidate, { connection, concurrency: 8 });
+const seoPingWorker = new Worker<SeoPingJob>(
+  'seo-ping',
+  async (job) => pingIndexNow(db, job.data),
+  { connection, concurrency: 2 },
+);
 
 mediaWorker.on('failed', async (job, err) => {
   console.error(`media-process ${job?.id} failed: ${err.message}`);
@@ -82,11 +88,14 @@ mediaWorker.on('failed', async (job, err) => {
 invalidationWorker.on('failed', (job, err) => {
   console.error(`invalidation ${job?.id} failed: ${err.message}`);
 });
+seoPingWorker.on('failed', (job, err) => {
+  console.error(`seo-ping ${job?.id} failed: ${err.message}`);
+});
 
-console.log('worker started: media-process, invalidation');
+console.log('worker started: media-process, invalidation, seo-ping');
 
 async function shutdown() {
-  await Promise.all([mediaWorker.close(), invalidationWorker.close()]);
+  await Promise.all([mediaWorker.close(), invalidationWorker.close(), seoPingWorker.close()]);
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

@@ -102,6 +102,11 @@ services:
       IMGPROXY_KEY: 943b421c9eb07c830af81030552c86009268de4e532ba2ee2eab8247c6da0881
       IMGPROXY_SALT: 520f986b998545b4785e0defbc4f3c1203f22de2374a3d53cb7a7fe9fea309c5
       IMGPROXY_BIND: ":8080"
+      # Accept-header negotiation: AVIF (20-50% smaller) → WebP → original.
+      # The CDN in front MUST key its cache on the Accept header (Vary: Accept).
+      IMGPROXY_AUTO_AVIF: "true"
+      IMGPROXY_AUTO_WEBP: "true"
+      IMGPROXY_AVIF_SPEED: "8"
     ports:
       - "8081:8080"
     depends_on:

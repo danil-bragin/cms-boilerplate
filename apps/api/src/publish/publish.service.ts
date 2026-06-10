@@ -1,8 +1,12 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { and, eq, ne } from 'drizzle-orm';
 import { pages, pageLocales, pageVersions, publishedPages } from '@cms/db';
 import { DB, type Db } from '../db/db.module.js';
 import { REVALIDATE_CLIENT, type RevalidateClient } from './revalidate.client.js';
+
+export const SEO_PING_QUEUE = 'seo-ping';
 
 interface RootProps {
   title?: string;
@@ -14,6 +18,7 @@ export class PublishService {
   constructor(
     @Inject(DB) private readonly db: Db,
     @Inject(REVALIDATE_CLIENT) private readonly revalidate: RevalidateClient,
+    @Optional() @InjectQueue(SEO_PING_QUEUE) private readonly seoPing?: Queue,
   ) {}
 
   async publish(pageLocaleId: string, versionId: string) {
@@ -67,6 +72,7 @@ export class PublishService {
 
     // after commit — stale-until-retry on failure, never a failed publish
     await this.revalidate.invalidate(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path));
+    await this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path);
 
     return { versionId, publishedAt };
   }
@@ -92,7 +98,17 @@ export class PublishService {
     });
 
     await this.revalidate.invalidate(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path));
+    await this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path);
     return { ok: true };
+  }
+
+  /** IndexNow notification (Bing/Yandex/Naver + ChatGPT search via Bing index). */
+  private async enqueueSeoPing(siteId: string, locale: string, path: string) {
+    await this.seoPing?.add(
+      'indexnow',
+      { siteId, locale, path },
+      { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+    );
   }
 
   private tag(siteId: string, locale: string, path: string) {

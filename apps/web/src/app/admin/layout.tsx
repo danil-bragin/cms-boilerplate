@@ -3,12 +3,15 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const session = await getSession({ refresh: true });
   if (!session) redirect('/api/auth/login?returnTo=/admin');
 
   return (
-    <div>
+    <html lang="en">
+      <body style={{ margin: 0, fontFamily: 'system-ui, sans-serif' }}>
       <header
         style={{
           display: 'flex',
@@ -28,6 +31,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         </span>
       </header>
       {children}
-    </div>
+      </body>
+    </html>
   );
 }

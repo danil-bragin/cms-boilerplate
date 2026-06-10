@@ -135,6 +135,8 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  // public traffic only — admin/api/preview/static assets bypass the rewrite
-  matcher: ['/((?!_next|api|admin|preview|favicon\\.ico|robots\\.txt|sitemap\\.xml).*)'],
+  // public traffic only — admin/api/preview/seo endpoints/static assets bypass the rewrite
+  matcher: [
+    '/((?!_next|api|admin|preview|og|favicon\\.ico|robots\\.txt|sitemap\\.xml|indexnow\\.txt).*)',
+  ],
 };

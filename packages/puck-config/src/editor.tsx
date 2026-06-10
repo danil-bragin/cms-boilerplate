@@ -118,8 +118,12 @@ export function createEditorConfig(
             { label: 'Yes', value: true },
             { label: 'No', value: false },
           ] },
+          priority: { type: 'radio', label: 'Above the fold (LCP priority)', options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ] },
         },
-        defaultProps: { alt: '', rounded: false },
+        defaultProps: { alt: '', rounded: false, priority: false },
       },
       Button: {
         ...renderConfig.components.Button,

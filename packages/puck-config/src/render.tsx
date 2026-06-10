@@ -54,7 +54,7 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
       render: ({ text }) => <p style={{ lineHeight: 1.6 }}>{text}</p>,
     },
     Image: {
-      render: ({ media, alt, rounded }) => {
+      render: ({ media, alt, rounded, priority }) => {
         if (!media?.s3Key) {
           return (
             <div style={{ background: '#eee', padding: 48, textAlign: 'center', color: '#888' }}>
@@ -72,7 +72,8 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
               .join(', ')}
             sizes="(max-width: 768px) 100vw, 1280px"
             alt={alt || media.alt || ''}
-            loading="lazy"
+            loading={priority ? 'eager' : 'lazy'}
+            fetchPriority={priority ? 'high' : undefined}
             decoding="async"
             style={{
               width: '100%',

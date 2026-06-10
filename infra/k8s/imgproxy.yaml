@@ -17,6 +17,11 @@ spec:
           env:
             - name: IMGPROXY_USE_S3
               value: "true"
+            # CDN must cache with Vary: Accept for these to work correctly
+            - name: IMGPROXY_AUTO_AVIF
+              value: "true"
+            - name: IMGPROXY_AUTO_WEBP
+              value: "true"
             - name: IMGPROXY_KEY
               valueFrom: { secretKeyRef: { name: cms-secrets, key: IMGPROXY_KEY } }
             - name: IMGPROXY_SALT

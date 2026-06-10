@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { createDb } from './client.js';
 import { sites, users, pages, pageLocales, pageVersions, publishedPages } from './schema.js';
 import { and, eq } from 'drizzle-orm';
@@ -43,10 +44,20 @@ async function main() {
       domains: ['localhost'],
       defaultLocale: 'en',
       locales: ['en', 'de'],
+      settings: { indexNowKey: randomBytes(16).toString('hex') },
     })
     .onConflictDoUpdate({ target: sites.slug, set: { domains: ['localhost'] } })
     .returning();
   if (!site) throw new Error('seed: site upsert failed');
+
+  // existing site without a key (pre-indexnow seed): add one, never rotate
+  const settings = site.settings as { indexNowKey?: string };
+  if (!settings.indexNowKey) {
+    await db
+      .update(sites)
+      .set({ settings: { ...settings, indexNowKey: randomBytes(16).toString('hex') } })
+      .where(eq(sites.id, site.id));
+  }
 
   async function ensurePage(path: string, name: string, puckData: unknown, publish: boolean) {
     let page = await db.query.pages.findFirst({

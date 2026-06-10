@@ -134,6 +134,51 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 pnpm dev
 # UI: http://localhost:16686
 ```
 
+## SEO & indexing (built in)
+
+Per page (all from the publish snapshot, all cached with the page HTML):
+- `<html lang>` per locale; canonical + hreflang link tags incl. `x-default`
+  (single channel — deliberately not duplicated in the sitemap).
+- `robots: index, follow, max-snippet:-1, max-image-preview:large,
+  max-video-preview:-1` (the `max-image-preview:large` directive feeds Google
+  Discover and AI Overviews image previews).
+- Open Graph (type, url, site_name, locale + alternates) + Twitter
+  `summary_large_image`; **dynamic OG image** 1200×630 at `/og/{pageId}`
+  (ImageResponse, immutable-cached, URL versioned by publish timestamp so
+  scraper caches bust on republish).
+- JSON-LD: `WebSite` + `WebPage` (real `dateModified`) + `BreadcrumbList`.
+  No `SearchAction` (Google killed the sitelinks search box in 2024), no
+  FAQ/HowTo rich-result chasing (removed by Google).
+
+Per site (host-aware route handlers — the file conventions can't see Host):
+- `/sitemap.xml` — real `lastmod` from `published_at` (Google only trusts
+  accurate lastmod; `priority`/`changefreq` omitted — ignored). 
+- `/robots.txt` — sitemap line + optional AI-training-bot block
+  (`site.settings.seo.blockAiTraining`): blocks GPTBot/ClaudeBot/CCBot-class
+  **training** scrapers only, never AI *search* indexers (OAI-SearchBot,
+  Claude-SearchBot, PerplexityBot) — those drive citations in AI answers.
+- **IndexNow**: per-site key (`/indexnow.txt`), worker pings
+  `api.indexnow.org` on every publish/unpublish → near-real-time indexing in
+  Bing/Yandex/Naver and the Bing-backed AI surfaces (ChatGPT search, Copilot).
+  Google doesn't support IndexNow — the sitemap covers it.
+- llms.txt intentionally omitted: ~0.1% AI-bot fetch rate, dismissed by Google.
+
+## Speed (beyond the cache architecture)
+
+- **Speculation Rules** (`moderate` eagerness): Chrome prefetches/prerenders
+  links on hover/viewport — prerendered navigations land at p75 LCP ~320ms.
+  Excluded: admin/api/preview. Progressive enhancement, 2-slot FIFO cap.
+- Cross-document **View Transitions** (`@view-transition`) — animated MPA
+  navigations, pure CSS, Chrome + Safari 18.2+.
+- bfcache-clean: static HTML (no `no-store`), `Permissions-Policy: unload=()`.
+- LCP images: editor-set `priority` flag → `loading=eager fetchpriority=high`;
+  everything else lazy. `preconnect` to imgproxy in the document head.
+- imgproxy negotiates **AVIF → WebP → original** via Accept header
+  (`IMGPROXY_AUTO_AVIF/WEBP`); your CDN must cache with `Vary: Accept`.
+- `next start` compresses with gzip only — front it with
+  [`infra/nginx/nginx.conf`](infra/nginx/nginx.conf) (brotli_static for
+  immutable assets, brotli/zstd for HTML) and set `compress: false`.
+
 ## Abuse resistance on the read path
 
 - Unknown hosts, unknown locales and **unpublished paths are refused in the

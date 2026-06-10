@@ -39,6 +39,8 @@ export interface ImageProps {
   media?: MediaRef;
   alt: string;
   rounded: boolean;
+  /** LCP hint: above-the-fold images load eagerly with fetchpriority=high. */
+  priority: boolean;
 }
 
 export interface ButtonProps {
