@@ -1,0 +1,79 @@
+{
+  "realm": "cms",
+  "enabled": true,
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "cms-admin", "description": "Full CMS access" },
+      { "name": "cms-editor", "description": "Create/edit/publish content" },
+      { "name": "cms-viewer", "description": "Read-only CMS access" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "cms-web",
+      "name": "CMS Web (Next.js)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost:3000/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "cms-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "cms-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "cms-api",
+      "name": "CMS API (NestJS)",
+      "enabled": true,
+      "bearerOnly": true
+    }
+  ],
+  "users": [
+    {
+      "username": "admin@cms.local",
+      "email": "admin@cms.local",
+      "firstName": "CMS",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["cms-admin", "cms-editor"]
+    },
+    {
+      "username": "editor@cms.local",
+      "email": "editor@cms.local",
+      "firstName": "CMS",
+      "lastName": "Editor",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "editor", "temporary": false }],
+      "realmRoles": ["cms-editor"]
+    },
+    {
+      "username": "viewer@cms.local",
+      "email": "viewer@cms.local",
+      "firstName": "CMS",
+      "lastName": "Viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "viewer", "temporary": false }],
+      "realmRoles": ["cms-viewer"]
+    }
+  ]
+}
