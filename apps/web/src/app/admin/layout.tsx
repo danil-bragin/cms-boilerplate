@@ -22,9 +22,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           background: '#fafafa',
         }}
       >
-        <Link href="/admin" style={{ fontWeight: 600, textDecoration: 'none', color: '#1a1a2e' }}>
-          CMS Admin
-        </Link>
+        <span style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+          <Link href="/admin" style={{ fontWeight: 600, textDecoration: 'none', color: '#1a1a2e' }}>
+            CMS Admin
+          </Link>
+          <Link href="/admin/sites" style={{ fontSize: 14, color: '#555' }}>Sites</Link>
+          <Link href="/admin/redirects" style={{ fontSize: 14, color: '#555' }}>Redirects</Link>
+          <Link href="/admin/menus" style={{ fontSize: 14, color: '#555' }}>Menus</Link>
+          <Link href="/admin/webhooks" style={{ fontSize: 14, color: '#555' }}>Webhooks</Link>
+        </span>
         <span style={{ fontSize: 14, color: '#555' }}>
           {session.email} ({session.roles.join(', ') || 'no role'}) ·{' '}
           <a href="/api/auth/logout">Logout</a>

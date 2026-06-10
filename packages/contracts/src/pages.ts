@@ -28,6 +28,7 @@ export const saveDraftBody = z.object({
 export const localeSummary = z.object({
   pageLocaleId: z.uuid(),
   locale: localeSchema,
+  slugOverride: z.string().nullable().default(null),
   latestVersionNo: z.number().int(),
   latestStatus: z.enum(['draft', 'published', 'archived']),
   publishedVersionId: z.uuid().nullable(),

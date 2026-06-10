@@ -21,14 +21,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!site) return NextResponse.json({ results: [] }, { status: 404 });
 
   const tsquery = sql`websearch_to_tsquery('simple', ${q})`;
+  const rank = sql<number>`ts_rank(to_tsvector('simple', ${publishedPages.searchText}), ${tsquery})`;
   const rows = await db()
     .select({
       path: publishedPages.path,
       locale: publishedPages.locale,
       seo: publishedPages.seo,
-      rank: sql<number>`ts_rank(to_tsvector('simple', ${publishedPages.searchText}), ${tsquery})`,
+      rank: rank.as('rank'),
       snippet: sql<string>`ts_headline('simple', ${publishedPages.searchText}, ${tsquery},
-        'MaxWords=30, MinWords=15, MaxFragments=1')`,
+        'MaxWords=30, MinWords=15, MaxFragments=1')`.as('snippet'),
     })
     .from(publishedPages)
     .where(
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         sql`to_tsvector('simple', ${publishedPages.searchText}) @@ ${tsquery}`,
       ),
     )
-    .orderBy(sql`rank DESC`)
+    .orderBy(sql`${rank} DESC`)
     .limit(20);
 
   return NextResponse.json(

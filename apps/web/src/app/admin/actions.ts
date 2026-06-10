@@ -87,3 +87,155 @@ export async function presignUpload(siteId: string, filename: string, mime: stri
 export async function confirmUpload(mediaId: string) {
   return run(() => api(`/media/${mediaId}/confirm`, { method: 'POST' }));
 }
+
+// --- versions & scheduling ---
+
+export async function listVersions(pageLocaleId: string) {
+  return run(() => api<import('@cms/contracts').VersionListItem[]>(`/page-locales/${pageLocaleId}/versions`));
+}
+
+export async function getVersion(versionId: string) {
+  return run(() => api<import('@cms/contracts').VersionDto>(`/versions/${versionId}`));
+}
+
+/** Rollback = copy an old version's content into a fresh draft. */
+export async function restoreVersion(pageLocaleId: string, versionId: string) {
+  return run(async () => {
+    const version = await api<import('@cms/contracts').VersionDto>(`/versions/${versionId}`);
+    return api(`/page-locales/${pageLocaleId}/draft`, {
+      method: 'PUT',
+      body: JSON.stringify({ puckData: version.puckData }),
+    });
+  });
+}
+
+export async function publishOldVersion(pageLocaleId: string, versionId: string) {
+  return run(() =>
+    api(`/page-locales/${pageLocaleId}/publish`, {
+      method: 'POST',
+      body: JSON.stringify({ versionId }),
+    }),
+  );
+}
+
+export async function listSchedules(pageLocaleId: string) {
+  return run(() => api<import('@cms/contracts').ScheduleDto[]>(`/page-locales/${pageLocaleId}/schedules`));
+}
+
+export async function schedulePublish(pageLocaleId: string, versionId: string, publishAt: string) {
+  return run(() =>
+    api<import('@cms/contracts').ScheduleDto>(`/page-locales/${pageLocaleId}/schedule`, {
+      method: 'POST',
+      body: JSON.stringify({ versionId, publishAt }),
+    }),
+  );
+}
+
+export async function cancelSchedule(scheduleId: string) {
+  return run(() => api(`/schedules/${scheduleId}`, { method: 'DELETE' }));
+}
+
+export async function createPreviewLink(versionId: string) {
+  const { createPreviewToken } = await import('@/lib/preview-token');
+  return { ok: true as const, data: `/preview/${versionId}?token=${createPreviewToken(versionId)}` };
+}
+
+// --- site management ---
+
+export async function createSite(body: import('@cms/contracts').CreateSiteBody) {
+  const result = await run(() => api('/sites', { method: 'POST', body: JSON.stringify(body) }));
+  revalidatePath('/admin');
+  return result;
+}
+
+export async function updateSite(siteId: string, body: import('@cms/contracts').UpdateSiteBody) {
+  const result = await run(() =>
+    api(`/sites/${siteId}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  );
+  revalidatePath('/admin');
+  return result;
+}
+
+export async function updateSlugOverride(pageLocaleId: string, slugOverride: string | null) {
+  const result = await run(() =>
+    api(`/page-locales/${pageLocaleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ slugOverride }),
+    }),
+  );
+  revalidatePath('/admin');
+  return result;
+}
+
+// --- redirects ---
+
+export async function listRedirects(siteId: string) {
+  return run(() => api<import('@cms/contracts').RedirectDto[]>(`/sites/${siteId}/redirects`));
+}
+
+export async function createRedirect(siteId: string, body: import('@cms/contracts').CreateRedirectBody) {
+  const result = await run(() =>
+    api(`/sites/${siteId}/redirects`, { method: 'POST', body: JSON.stringify(body) }),
+  );
+  revalidatePath('/admin/redirects');
+  return result;
+}
+
+export async function deleteRedirect(id: string) {
+  const result = await run(() => api(`/redirects/${id}`, { method: 'DELETE' }));
+  revalidatePath('/admin/redirects');
+  return result;
+}
+
+// --- menus ---
+
+export async function listMenus(siteId: string) {
+  return run(() => api<Array<{ id: string; slug: string; items: import('@cms/contracts').MenuItem[] }>>(`/sites/${siteId}/menus`));
+}
+
+export async function upsertMenu(siteId: string, body: import('@cms/contracts').UpsertMenuBody) {
+  const result = await run(() =>
+    api(`/sites/${siteId}/menus`, { method: 'PUT', body: JSON.stringify(body) }),
+  );
+  revalidatePath('/admin/menus');
+  return result;
+}
+
+export async function deleteMenu(id: string) {
+  const result = await run(() => api(`/menus/${id}`, { method: 'DELETE' }));
+  revalidatePath('/admin/menus');
+  return result;
+}
+
+// --- webhooks ---
+
+export async function listWebhooks(siteId: string) {
+  return run(() => api<import('@cms/contracts').WebhookDto[]>(`/sites/${siteId}/webhooks`));
+}
+
+export async function createWebhook(siteId: string, body: import('@cms/contracts').CreateWebhookBody) {
+  const result = await run(() =>
+    api<import('@cms/contracts').WebhookDto>(`/sites/${siteId}/webhooks`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  );
+  revalidatePath('/admin/webhooks');
+  return result;
+}
+
+export async function deleteWebhook(id: string) {
+  const result = await run(() => api(`/webhooks/${id}`, { method: 'DELETE' }));
+  revalidatePath('/admin/webhooks');
+  return result;
+}
+
+// --- media v2 ---
+
+export async function updateMediaAlt(mediaId: string, alt: Record<string, string>) {
+  return run(() => api(`/media/${mediaId}`, { method: 'PATCH', body: JSON.stringify({ alt }) }));
+}
+
+export async function deleteMedia(mediaId: string) {
+  return run(() => api(`/media/${mediaId}`, { method: 'DELETE' }));
+}

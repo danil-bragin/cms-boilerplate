@@ -1,0 +1,38 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", "group:monorepos"],
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "redis is the trieb cache handler's peer — v5/v6 break hScan and silently kill the page cache. Only bump together with the handler, after a manual ISR HIT check.",
+      "matchPackageNames": ["redis"],
+      "matchFileNames": ["apps/web/package.json"],
+      "enabled": false
+    },
+    {
+      "description": "Puck is pre-1.0: minors are breaking. Group and require manual review.",
+      "matchPackageNames": ["@puckeditor/core"],
+      "matchUpdateTypes": ["minor", "major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Cache handler bumps need the redis-pin check from README",
+      "matchPackageNames": ["@trieb.work/nextjs-turbo-redis-cache"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "groupName": "opentelemetry",
+      "matchPackageNames": ["@opentelemetry/**", "@vercel/otel"]
+    },
+    {
+      "groupName": "aws-sdk",
+      "matchPackageNames": ["@aws-sdk/**"]
+    },
+    {
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "platformAutomerge": true
+    }
+  ],
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on monday"] }
+}

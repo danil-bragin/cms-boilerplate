@@ -106,8 +106,15 @@ export function createEditorConfig(
       },
       Text: {
         ...renderConfig.components.Text,
-        fields: { text: { type: 'textarea', label: 'Text' } },
-        defaultProps: { text: 'Text block' },
+        fields: {
+          text: {
+            type: 'richtext',
+            label: 'Text',
+            contentEditable: true,
+            options: { heading: { levels: [2, 3, 4] } },
+          },
+        },
+        defaultProps: { text: '<p>Text block</p>' },
       },
       Image: {
         ...renderConfig.components.Image,

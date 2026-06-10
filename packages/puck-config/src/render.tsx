@@ -51,7 +51,13 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
       },
     },
     Text: {
-      render: ({ text }) => <p style={{ lineHeight: 1.6 }}>{text}</p>,
+      // richtext field stores sanitized-at-edit HTML from trusted editors
+      render: ({ text }) =>
+        /<[a-z][\s\S]*>/i.test(text) ? (
+          <div style={{ lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: text }} />
+        ) : (
+          <p style={{ lineHeight: 1.6 }}>{text}</p>
+        ),
     },
     Image: {
       render: ({ media, alt, rounded, priority }) => {

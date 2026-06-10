@@ -8,6 +8,7 @@ import { configureImages } from '@cms/puck-config';
 import type { PuckPermissions } from '@cms/auth';
 import { mediaField } from './media-field';
 import { publishVersion, saveDraft, unpublish } from '@/app/admin/actions';
+import { VersionsPanel } from './versions-panel';
 
 // Editor canvas runs in the browser: images go through the authed proxy route,
 // imgproxy signing keys never reach the client bundle.
@@ -39,6 +40,7 @@ export function EditorClient(props: {
   const [versionNo, setVersionNo] = useState(props.initialVersionNo);
   const [versionId, setVersionId] = useState(props.initialVersionId);
   const [status, setStatus] = useState<string>(props.initialStatus);
+  const [showVersions, setShowVersions] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestData = useRef<Data | null>(null);
   const versionNoRef = useRef(props.initialVersionNo);
@@ -122,6 +124,9 @@ export function EditorClient(props: {
         <a href={`/preview/${versionId}`} target="_blank" rel="noreferrer">
           Preview
         </a>
+        <button onClick={() => setShowVersions((v) => !v)} style={{ padding: '4px 12px' }}>
+          Versions
+        </button>
         {canEdit && (
           <>
             <button onClick={() => void onUnpublish()} style={{ padding: '4px 12px' }}>
@@ -136,6 +141,14 @@ export function EditorClient(props: {
           </>
         )}
       </div>
+      {showVersions && (
+        <VersionsPanel
+          pageLocaleId={props.pageLocaleId}
+          currentVersionId={versionId}
+          onClose={() => setShowVersions(false)}
+          onRestored={() => window.location.reload()}
+        />
+      )}
       <Puck
         key={props.pageLocaleId}
         config={config}

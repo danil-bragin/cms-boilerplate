@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { CustomField } from '@puckeditor/core';
 import type { MediaRef } from '@cms/puck-config';
 import type { MediaDto } from '@cms/contracts';
-import { confirmUpload, listMedia, presignUpload } from '@/app/admin/actions';
+import { confirmUpload, deleteMedia, listMedia, presignUpload, updateMediaAlt } from '@/app/admin/actions';
 
 export function mediaField(siteId: string): CustomField<MediaRef | undefined> {
   return {
@@ -69,6 +69,8 @@ function MediaLibrary({
   const [items, setItems] = useState<MediaDto[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState('');
+  const [altEditing, setAltEditing] = useState<{ id: string; value: string } | null>(null);
 
   async function refresh() {
     const result = await listMedia(siteId, 'ready');
@@ -151,29 +153,66 @@ function MediaLibrary({
           {uploading && <span> Uploading…</span>}
         </label>
         {error && <p style={{ color: '#c5221f' }}>{error}</p>}
+        <input
+          placeholder="Search by filename…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{ width: '100%', padding: 6, marginBottom: 8 }}
+        />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-          {items.map((m) => (
-            <button
-              key={m.id}
-              onClick={() =>
-                onSelect({
-                  mediaId: m.id,
-                  s3Key: m.s3Key,
-                  width: m.width,
-                  height: m.height,
-                  blurDataUrl: m.blurDataUrl,
-                  alt: '',
-                })
-              }
-              style={{ border: '1px solid #ddd', borderRadius: 4, padding: 4, cursor: 'pointer', background: '#fff' }}
-            >
-              <img
-                src={`/api/media/${m.s3Key}?w=150`}
-                alt=""
-                style={{ width: '100%', height: 90, objectFit: 'cover' }}
-              />
-            </button>
-          ))}
+          {items
+            .filter((m) => !filter || m.s3Key.toLowerCase().includes(filter.toLowerCase()))
+            .map((m) => {
+              const altRecord = (m.alt ?? {}) as Record<string, string>;
+              const altValue = altEditing?.id === m.id ? altEditing.value : (altRecord.en ?? '');
+              return (
+                <div key={m.id} style={{ border: '1px solid #ddd', borderRadius: 4, padding: 4, background: '#fff' }}>
+                  <button
+                    onClick={() =>
+                      onSelect({
+                        mediaId: m.id,
+                        s3Key: m.s3Key,
+                        width: m.width,
+                        height: m.height,
+                        blurDataUrl: m.blurDataUrl,
+                        alt: altRecord.en ?? '',
+                      })
+                    }
+                    style={{ border: 'none', padding: 0, cursor: 'pointer', background: 'none', width: '100%' }}
+                  >
+                    <img
+                      src={`/api/media/${m.s3Key}?w=150`}
+                      alt={altValue}
+                      style={{ width: '100%', height: 90, objectFit: 'cover' }}
+                    />
+                  </button>
+                  <input
+                    placeholder="alt (en)"
+                    value={altValue}
+                    onChange={(e) => setAltEditing({ id: m.id, value: e.target.value })}
+                    onBlur={async () => {
+                      if (altEditing?.id === m.id) {
+                        await updateMediaAlt(m.id, { ...altRecord, en: altEditing.value });
+                        setAltEditing(null);
+                        await refresh();
+                      }
+                    }}
+                    style={{ width: '100%', padding: 3, fontSize: 12, marginTop: 4 }}
+                  />
+                  <button
+                    onClick={async () => {
+                      if (confirm('Delete this media?')) {
+                        await deleteMedia(m.id);
+                        await refresh();
+                      }
+                    }}
+                    style={{ width: '100%', marginTop: 4, fontSize: 12, color: '#c5221f' }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              );
+            })}
           {items.length === 0 && <p style={{ gridColumn: '1/-1', color: '#888' }}>No media yet — upload one.</p>}
         </div>
       </div>

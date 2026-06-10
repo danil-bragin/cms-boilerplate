@@ -58,6 +58,7 @@ export class PagesService {
       summaries.set(loc.id, {
         pageLocaleId: loc.id,
         locale: loc.locale,
+        slugOverride: loc.slugOverride,
         latestVersionNo: latest?.versionNo ?? 0,
         latestStatus: latest?.status ?? 'draft',
         publishedVersionId: publishedByKey.get(`${loc.pageId}:${loc.locale}`) ?? null,
@@ -111,6 +112,7 @@ export class PagesService {
           {
             pageLocaleId: locale!.id,
             locale: locale!.locale,
+            slugOverride: null,
             latestVersionNo: version!.versionNo,
             latestStatus: version!.status,
             publishedVersionId: null,

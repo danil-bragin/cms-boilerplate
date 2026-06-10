@@ -69,3 +69,53 @@ export function AddLocaleButton({ pageId, locale }: { pageId: string; locale: st
     </button>
   );
 }
+
+export function SlugOverrideButton({
+  pageLocaleId,
+  locale,
+  current,
+}: {
+  pageLocaleId: string;
+  locale: string;
+  current: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(current ?? '');
+  const [pending, startTransition] = useTransition();
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        title={`Localized slug for ${locale}${current ? `: ${current}` : ''}`}
+        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: '#888' }}
+      >
+        ✎{current ? ` ${current}` : ''}
+      </button>
+    );
+  }
+  return (
+    <span style={{ display: 'inline-flex', gap: 4 }}>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="localized-slug"
+        pattern="[a-z0-9-]*"
+        style={{ padding: 2, fontSize: 12, width: 110 }}
+      />
+      <button
+        disabled={pending}
+        style={{ fontSize: 12 }}
+        onClick={() =>
+          startTransition(async () => {
+            const { updateSlugOverride } = await import('@/app/admin/actions');
+            await updateSlugOverride(pageLocaleId, value.trim() || null);
+            setEditing(false);
+          })
+        }
+      >
+        ✓
+      </button>
+    </span>
+  );
+}
