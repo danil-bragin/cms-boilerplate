@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Puck, type Data, type Permissions } from '@puckeditor/core';
 import '@puckeditor/core/puck.css';
 import { createEditorConfig } from '@cms/puck-config/editor';
@@ -44,8 +44,19 @@ export function EditorClient(props: {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestData = useRef<Data | null>(null);
   const versionNoRef = useRef(props.initialVersionNo);
+  // refs, not state: onPublish runs after flush() and must see the version
+  // flush just created — state closures would publish a stale version
+  const versionIdRef = useRef(props.initialVersionId);
+  const updatedAtRef = useRef<string | undefined>(undefined);
 
   const canEdit = props.permissions.edit;
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   function scheduleSave(data: Data) {
     latestData.current = data;
@@ -57,9 +68,16 @@ export function EditorClient(props: {
   async function flush(): Promise<boolean> {
     if (!latestData.current) return true;
     setSaveState({ kind: 'saving' });
-    const result = await saveDraft(props.pageLocaleId, latestData.current, versionNoRef.current);
+    const result = await saveDraft(
+      props.pageLocaleId,
+      latestData.current,
+      versionNoRef.current,
+      updatedAtRef.current,
+    );
     if (result.ok && result.data) {
       versionNoRef.current = result.data.versionNo;
+      versionIdRef.current = result.data.id;
+      updatedAtRef.current = result.data.updatedAt as unknown as string;
       setVersionNo(result.data.versionNo);
       setVersionId(result.data.id);
       setStatus(result.data.status);
@@ -78,7 +96,7 @@ export function EditorClient(props: {
     if (timer.current) clearTimeout(timer.current);
     const saved = await flush();
     if (!saved && latestData.current) return;
-    const result = await publishVersion(props.pageLocaleId, versionId);
+    const result = await publishVersion(props.pageLocaleId, versionIdRef.current);
     if (result.ok) {
       setStatus('published');
       setSaveState({ kind: 'saved', at: Date.now() });

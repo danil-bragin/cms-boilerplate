@@ -1,8 +1,8 @@
 import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { and, eq, ne } from 'drizzle-orm';
-import { pages, pageLocales, pageVersions, publishedPages, webhooks } from '@cms/db';
+import { and, eq, ne, sql } from 'drizzle-orm';
+import { pages, pageLocales, pageVersions, publishedPages, redirects, webhooks } from '@cms/db';
 import { DB, type Db } from '../db/db.module.js';
 import { REVALIDATE_CLIENT, type RevalidateClient } from './revalidate.client.js';
 
@@ -77,7 +77,49 @@ export class PublishService {
       .join(' ')
       .slice(0, 50_000);
 
+    const staleTags: string[] = [];
     const publishedAt = await this.db.transaction(async (tx) => {
+      // serialize publish/unpublish per locale — kills the double-published race
+      await tx.execute(sql`SELECT id FROM page_locales WHERE id = ${pageLocaleId} FOR UPDATE`);
+
+      // path changed (rename or slugOverride): retire the snapshot at the old
+      // path and leave a permanent redirect so the old URL keeps working
+      const stale = await tx
+        .select({ path: publishedPages.path })
+        .from(publishedPages)
+        .where(
+          and(
+            eq(publishedPages.pageId, ctx.page.id),
+            eq(publishedPages.locale, ctx.locale.locale),
+            ne(publishedPages.path, path),
+          ),
+        );
+      for (const old of stale) {
+        await tx
+          .delete(publishedPages)
+          .where(
+            and(
+              eq(publishedPages.pageId, ctx.page.id),
+              eq(publishedPages.locale, ctx.locale.locale),
+              eq(publishedPages.path, old.path),
+            ),
+          );
+        await tx
+          .insert(redirects)
+          .values({
+            siteId: ctx.page.siteId,
+            fromPath: `/${ctx.locale.locale}${old.path === '/' ? '' : old.path}`,
+            toPath: `/${ctx.locale.locale}${path === '/' ? '' : path}`,
+            status: '301',
+            createdBy: 'system',
+          })
+          .onConflictDoUpdate({
+            target: [redirects.siteId, redirects.fromPath],
+            set: { toPath: `/${ctx.locale.locale}${path === '/' ? '' : path}` },
+          });
+        staleTags.push(this.tag(ctx.page.siteId, ctx.locale.locale, old.path));
+      }
+
       await tx
         .update(pageVersions)
         .set({ status: 'archived' })
@@ -111,7 +153,10 @@ export class PublishService {
     });
 
     // after commit — stale-until-retry on failure, never a failed publish
-    await this.revalidate.invalidate(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path));
+    await this.revalidate.invalidate([
+      ...(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path)),
+      ...staleTags,
+    ]);
     await this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path);
     await this.dispatchWebhooks(ctx.page.siteId, 'page.published', {
       pageId: ctx.page.id,
@@ -128,6 +173,7 @@ export class PublishService {
     const path = this.publicPath(ctx.page.path, ctx.locale.slugOverride);
 
     await this.db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT id FROM page_locales WHERE id = ${pageLocaleId} FOR UPDATE`);
       await tx
         .update(pageVersions)
         .set({ status: 'archived' })

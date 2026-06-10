@@ -3,6 +3,7 @@ import request from 'supertest';
 import { and, eq } from 'drizzle-orm';
 import { pageVersions, publishedPages } from '@cms/db';
 import { ContentModule } from '../src/content/content.module.js';
+import { AdminModule } from '../src/admin/admin.module.js';
 import { PublishModule } from '../src/publish/publish.module.js';
 import { REVALIDATE_CLIENT, type RevalidateClient } from '../src/publish/revalidate.client.js';
 import { startStack, type TestStack } from './harness.js';
@@ -20,7 +21,7 @@ describe('publish api', () => {
   beforeAll(async () => {
     stack = await startStack({
       metadata: {
-        imports: [ContentModule, PublishModule],
+        imports: [ContentModule, PublishModule, AdminModule],
       },
       withRedis: true,
       overrides: [{ token: REVALIDATE_CLIENT, value: { invalidate } satisfies RevalidateClient }],
@@ -142,5 +143,51 @@ describe('publish api', () => {
     expect(invalidate).toHaveBeenCalledWith(
       expect.arrayContaining([`page:${stack.siteId}:en:/pub`]),
     );
+  });
+
+  it('slugOverride change retires the old path and leaves a 301 redirect', async () => {
+    const page = await http()
+      .post(`/sites/${stack.siteId}/pages`)
+      .set(AUTH)
+      .send({ path: '/movable', name: 'Movable' })
+      .expect(201);
+    const localeId = page.body.locales[0].pageLocaleId;
+    const draft = await http()
+      .put(`/page-locales/${localeId}/draft`)
+      .set(AUTH)
+      .send({ puckData: puck('move me') })
+      .expect(200);
+    await http()
+      .post(`/page-locales/${localeId}/publish`)
+      .set(AUTH)
+      .send({ versionId: draft.body.id })
+      .expect(201);
+
+    // change the localized slug, republish
+    await http()
+      .patch(`/page-locales/${localeId}`)
+      .set(AUTH)
+      .send({ slugOverride: 'verschoben' })
+      .expect(200);
+    await http()
+      .post(`/page-locales/${localeId}/publish`)
+      .set(AUTH)
+      .send({ versionId: draft.body.id })
+      .expect(201);
+
+    const rows = await stack.db.query.publishedPages.findMany({
+      where: eq(publishedPages.path, '/movable'),
+    });
+    expect(rows).toHaveLength(0); // old path retired
+    const moved = await stack.db.query.publishedPages.findMany({
+      where: eq(publishedPages.path, '/verschoben'),
+    });
+    expect(moved).toHaveLength(1);
+    const { redirects } = await import('@cms/db');
+    const redirect = await stack.db.query.redirects.findFirst({
+      where: eq(redirects.fromPath, '/en/movable'),
+    });
+    expect(redirect?.toPath).toBe('/en/verschoben');
+    expect(redirect?.status).toBe('301');
   });
 });

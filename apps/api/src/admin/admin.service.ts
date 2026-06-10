@@ -98,6 +98,19 @@ export class AdminService {
 
   async createRedirect(siteId: string, body: CreateRedirectBody, createdBy: string) {
     await this.mustGetSite(siteId);
+    if (body.fromPath === body.toPath) {
+      throw new BadRequestException({ code: 'redirect_loop', message: 'fromPath equals toPath' });
+    }
+    // one-level chain/loop detection: target must not itself be redirected
+    const chained = await this.db.query.redirects.findFirst({
+      where: and(eq(redirects.siteId, siteId), eq(redirects.fromPath, body.toPath)),
+    });
+    if (chained) {
+      throw new BadRequestException({
+        code: 'redirect_chain',
+        message: `toPath is itself redirected to ${chained.toPath} — point directly there`,
+      });
+    }
     const existing = await this.db.query.redirects.findFirst({
       where: and(eq(redirects.siteId, siteId), eq(redirects.fromPath, body.fromPath)),
     });

@@ -23,6 +23,12 @@ export const saveDraftBody = z.object({
   puckData: puckDataSchema,
   /** Optimistic concurrency: latest versionNo the client based its edit on. */
   baseVersionNo: z.number().int().positive().optional(),
+  /**
+   * Optimistic concurrency against concurrent DRAFT edits: server-reported
+   * updatedAt of the draft this edit is based on. versionNo alone cannot see
+   * draft-vs-draft conflicts (overwrite-in-place keeps the same versionNo).
+   */
+  baseUpdatedAt: z.coerce.date().optional(),
 });
 
 export const localeSummary = z.object({
@@ -56,6 +62,7 @@ export const versionListItem = z.object({
   status: z.enum(['draft', 'published', 'archived']),
   createdBy: z.string(),
   createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
 });
 
 export const versionDto = versionListItem.extend({

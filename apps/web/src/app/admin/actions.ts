@@ -48,11 +48,16 @@ export async function addLocale(pageId: string, locale: string) {
   return result;
 }
 
-export async function saveDraft(pageLocaleId: string, puckData: unknown, baseVersionNo?: number) {
+export async function saveDraft(
+  pageLocaleId: string,
+  puckData: unknown,
+  baseVersionNo?: number,
+  baseUpdatedAt?: string,
+) {
   return run(() =>
     api<VersionDto>(`/page-locales/${pageLocaleId}/draft`, {
       method: 'PUT',
-      body: JSON.stringify({ puckData, baseVersionNo }),
+      body: JSON.stringify({ puckData, baseVersionNo, baseUpdatedAt }),
     }),
   );
 }

@@ -1,4 +1,5 @@
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { isUniqueViolation } from '../db/pg-errors.js';
 import { desc, eq } from 'drizzle-orm';
 import { pageLocales, pageVersions } from '@cms/db';
 import type { PuckData } from '@cms/contracts';
@@ -37,42 +38,58 @@ export class VersionsService {
     puckData: PuckData,
     createdBy: string,
     baseVersionNo?: number,
+    baseUpdatedAt?: Date,
   ) {
     await this.assertLocale(pageLocaleId);
 
-    return this.db.transaction(async (tx) => {
-      const latest = await tx.query.pageVersions.findFirst({
-        where: eq(pageVersions.pageLocaleId, pageLocaleId),
-        orderBy: desc(pageVersions.versionNo),
-      });
-
-      if (baseVersionNo !== undefined && latest && latest.versionNo !== baseVersionNo) {
-        throw new ConflictException({
-          code: 'stale_draft',
-          message: `Draft is based on v${baseVersionNo} but latest is v${latest.versionNo}`,
+    try {
+      return await this.db.transaction(async (tx) => {
+        const latest = await tx.query.pageVersions.findFirst({
+          where: eq(pageVersions.pageLocaleId, pageLocaleId),
+          orderBy: desc(pageVersions.versionNo),
         });
-      }
 
-      if (latest && latest.status === 'draft') {
-        const [updated] = await tx
-          .update(pageVersions)
-          .set({ puckData })
-          .where(eq(pageVersions.id, latest.id))
+        if (baseVersionNo !== undefined && latest && latest.versionNo !== baseVersionNo) {
+          throw new ConflictException({
+            code: 'stale_draft',
+            message: `Draft is based on v${baseVersionNo} but latest is v${latest.versionNo}`,
+          });
+        }
+
+        if (latest && latest.status === 'draft') {
+          // draft-vs-draft conflict detection: another editor saved since we loaded
+          if (baseUpdatedAt !== undefined && latest.updatedAt.getTime() !== baseUpdatedAt.getTime()) {
+            throw new ConflictException({
+              code: 'stale_draft',
+              message: 'Draft was modified by another editor',
+            });
+          }
+          const [updated] = await tx
+            .update(pageVersions)
+            .set({ puckData, updatedAt: new Date() })
+            .where(eq(pageVersions.id, latest.id))
+            .returning();
+          return updated!;
+        }
+
+        const [created] = await tx
+          .insert(pageVersions)
+          .values({
+            pageLocaleId,
+            versionNo: (latest?.versionNo ?? 0) + 1,
+            puckData,
+            createdBy,
+          })
           .returning();
-        return updated!;
+        return created!;
+      });
+    } catch (err) {
+      // raced concurrent insert of the same versionNo
+      if (isUniqueViolation(err)) {
+        throw new ConflictException({ code: 'stale_draft', message: 'Concurrent save — retry' });
       }
-
-      const [created] = await tx
-        .insert(pageVersions)
-        .values({
-          pageLocaleId,
-          versionNo: (latest?.versionNo ?? 0) + 1,
-          puckData,
-          createdBy,
-        })
-        .returning();
-      return created!;
-    });
+      throw err;
+    }
   }
 
   private async assertLocale(pageLocaleId: string) {

@@ -7,6 +7,12 @@ import { loadConfig } from './config/config.js';
 async function bootstrap() {
   const cfg = loadConfig();
   const app = await NestFactory.create(AppModule);
+  // the 'system' user owns automated writes (auto-redirects, scheduled publishes)
+  const { createDb, users } = await import('@cms/db');
+  await createDb(cfg.DATABASE_URL, { max: 1 })
+    .insert(users)
+    .values({ id: 'system', email: 'system@cms.local', displayName: 'System' })
+    .onConflictDoNothing();
   app.enableCors({ origin: true, credentials: false });
   app.enableShutdownHooks();
   await app.listen(cfg.API_PORT);

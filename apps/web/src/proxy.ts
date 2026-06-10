@@ -110,7 +110,12 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
   }
 
   const host = (req.headers.get('host') ?? '').split(':')[0] ?? '';
-  const site = (await siteMap())?.get(host);
+  const sites = await siteMap();
+  if (!sites) {
+    // cold start with the DB down: we genuinely don't know the host — say so
+    return new NextResponse('Service unavailable', { status: 503, headers: { 'retry-after': '5' } });
+  }
+  const site = sites.get(host);
   if (!site) {
     return new NextResponse('Not found', { status: 404 });
   }

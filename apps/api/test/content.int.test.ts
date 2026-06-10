@@ -122,4 +122,32 @@ describe('content api', () => {
       expect(full.body.puckData.root.props.title).toBe('About v1 edited');
     });
   });
+
+  describe('draft concurrency (updatedAt OCC)', () => {
+    it('rejects a save based on a stale draft snapshot', async () => {
+      const pages = await http().get(`/sites/${stack.siteId}/pages`).set(AUTH);
+      const about = pages.body.find((p: { path: string }) => p.path === '/about');
+      const localeId = about.locales.find((l: { locale: string }) => l.locale === 'en').pageLocaleId;
+
+      const first = await http()
+        .put(`/page-locales/${localeId}/draft`)
+        .set(AUTH)
+        .send({ puckData: puck('editor A') })
+        .expect(200);
+
+      // editor B saves on top — gets the fresh updatedAt
+      await http()
+        .put(`/page-locales/${localeId}/draft`)
+        .set(AUTH)
+        .send({ puckData: puck('editor B'), baseUpdatedAt: first.body.updatedAt })
+        .expect(200);
+
+      // editor A saves again with the OLD updatedAt → conflict, work not destroyed
+      await http()
+        .put(`/page-locales/${localeId}/draft`)
+        .set(AUTH)
+        .send({ puckData: puck('editor A again'), baseUpdatedAt: first.body.updatedAt })
+        .expect(409);
+    });
+  });
 });

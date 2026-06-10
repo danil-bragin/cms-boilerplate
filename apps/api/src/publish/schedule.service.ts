@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Queue, type Job } from 'bullmq';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { pageVersions, scheduledPublishes } from '@cms/db';
 import { DB, type Db } from '../db/db.module.js';
 import { PublishService } from './publish.service.js';
@@ -39,38 +39,53 @@ export class ScheduleService {
       throw new NotFoundException({ code: 'version_not_found', message: 'Version not found' });
     }
 
+    // freeze the content: what was approved at schedule time is what publishes,
+    // even if the draft (same versionId) is edited afterwards
     const [row] = await this.db
       .insert(scheduledPublishes)
-      .values({ pageLocaleId, versionId, publishAt, createdBy })
+      .values({ pageLocaleId, versionId, puckData: version.puckData, publishAt, createdBy })
       .returning();
 
-    await this.queue.add(
-      'publish',
-      { scheduleId: row!.id },
-      {
-        jobId: row!.id, // makes cancellation a simple queue.remove
-        delay: publishAt.getTime() - Date.now(),
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 10_000 },
-      },
-    );
+    try {
+      await this.queue.add(
+        'publish',
+        { scheduleId: row!.id },
+        {
+          jobId: row!.id, // makes cancellation a simple queue.remove
+          delay: publishAt.getTime() - Date.now(),
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 10_000 },
+        },
+      );
+    } catch (err) {
+      // never leave a pending row with no job behind it
+      await this.db.delete(scheduledPublishes).where(eq(scheduledPublishes.id, row!.id));
+      throw err;
+    }
     return row!;
   }
 
   async cancel(scheduleId: string) {
-    const row = await this.db.query.scheduledPublishes.findFirst({
-      where: eq(scheduledPublishes.id, scheduleId),
-    });
-    if (!row) throw new NotFoundException({ code: 'schedule_not_found', message: 'Not found' });
-    if (row.status !== 'pending') {
-      throw new BadRequestException({ code: 'not_pending', message: `Already ${row.status}` });
-    }
-    const job = await this.queue.getJob(scheduleId);
-    await job?.remove();
-    await this.db
+    // conditional update first: only a still-pending row can be cancelled —
+    // a schedule that completed between read and write stays 'done'
+    const updated = await this.db
       .update(scheduledPublishes)
       .set({ status: 'cancelled' })
-      .where(eq(scheduledPublishes.id, scheduleId));
+      .where(and(eq(scheduledPublishes.id, scheduleId), eq(scheduledPublishes.status, 'pending')))
+      .returning();
+    if (updated.length === 0) {
+      const row = await this.db.query.scheduledPublishes.findFirst({
+        where: eq(scheduledPublishes.id, scheduleId),
+      });
+      if (!row) throw new NotFoundException({ code: 'schedule_not_found', message: 'Not found' });
+      throw new BadRequestException({ code: 'not_pending', message: `Already ${row.status}` });
+    }
+    try {
+      const job = await this.queue.getJob(scheduleId);
+      await job?.remove();
+    } catch {
+      // job already running: the processor re-checks status and will see 'cancelled'
+    }
     return { ok: true };
   }
 }
@@ -97,7 +112,21 @@ export class ScheduleProcessor extends WorkerHost {
     if (!row || row.status !== 'pending') return; // cancelled or gone
 
     try {
-      await this.publishService.publish(row.pageLocaleId, row.versionId);
+      // materialize the frozen snapshot as a new immutable version, then publish it
+      const latest = await this.db.query.pageVersions.findFirst({
+        where: eq(pageVersions.pageLocaleId, row.pageLocaleId),
+        orderBy: [desc(pageVersions.versionNo)],
+      });
+      const [frozen] = await this.db
+        .insert(pageVersions)
+        .values({
+          pageLocaleId: row.pageLocaleId,
+          versionNo: (latest?.versionNo ?? 0) + 1,
+          puckData: row.puckData,
+          createdBy: row.createdBy,
+        })
+        .returning();
+      await this.publishService.publish(row.pageLocaleId, frozen!.id);
       await this.db
         .update(scheduledPublishes)
         .set({ status: 'done' })

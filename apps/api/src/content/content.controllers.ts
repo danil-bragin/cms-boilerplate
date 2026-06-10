@@ -70,6 +70,6 @@ export class PagesController {
     @Body() body: SaveDraftDto,
     @CurrentUser() user: AuthContext,
   ) {
-    return this.versionsService.saveDraft(id, body.puckData, user.sub, body.baseVersionNo);
+    return this.versionsService.saveDraft(id, body.puckData, user.sub, body.baseVersionNo, body.baseUpdatedAt);
   }
 }

@@ -1,4 +1,5 @@
 import { ConflictException, Inject, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { isUniqueViolation } from '../db/pg-errors.js';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { pages, pageLocales, pageVersions, publishedPages, sites } from '@cms/db';
 import type { LocaleSummary, PageSummary } from '@cms/contracts';
@@ -80,7 +81,8 @@ export class PagesService {
 
     const normalized = normalizePath(path);
 
-    return this.db.transaction(async (tx) => {
+    try {
+      return await this.db.transaction(async (tx) => {
       const existing = await tx.query.pages.findFirst({
         where: and(eq(pages.siteId, siteId), eq(pages.path, normalized)),
       });
@@ -119,7 +121,13 @@ export class PagesService {
           },
         ],
       };
-    });
+      });
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        throw new ConflictException({ code: 'page_exists', message: `Page ${normalized} already exists` });
+      }
+      throw err;
+    }
   }
 
   async addLocale(pageId: string, locale: string, createdBy: string) {

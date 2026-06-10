@@ -38,10 +38,18 @@ export async function processImage(input: Buffer, declaredMime?: string): Promis
     };
   }
 
-  // .rotate() bakes EXIF orientation in before metadata is dropped;
-  // re-encode without withMetadata() → EXIF/GPS/XMP gone
-  const pipeline = sharp(input).rotate();
-  const cleaned = await pipeline.toBuffer();
+  // Only re-encode when there is metadata to strip — keeps processing
+  // idempotent (retries see a clean file and do nothing) and avoids
+  // generational quality loss on already-clean uploads.
+  const hasMetadata = Boolean(meta.exif || meta.xmp || meta.iptc);
+  let cleaned = input;
+  if (hasMetadata) {
+    // .rotate() bakes EXIF orientation in before metadata is dropped
+    const pipeline = sharp(input).rotate();
+    cleaned = await (format === 'jpeg'
+      ? pipeline.jpeg({ quality: 90, mozjpeg: true }).toBuffer()
+      : pipeline.toBuffer());
+  }
   const { blurhash, blurDataUrl } = await placeholders(sharp(cleaned));
 
   const cleanedMeta = await sharp(cleaned).metadata();

@@ -15,6 +15,13 @@
       "when": 1781123692080,
       "tag": "0001_flimsy_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781126401676,
+      "tag": "0002_curved_pepper_potts",
+      "breakpoints": true
     }
   ]
 }

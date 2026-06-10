@@ -18,6 +18,8 @@ export const mediaStatus = pgEnum('media_status', ['uploading', 'ready', 'failed
 export const redirectStatus = pgEnum('redirect_status', ['301', '302']);
 export const scheduleStatus = pgEnum('schedule_status', ['pending', 'done', 'cancelled', 'failed']);
 
+export const memberRole = pgEnum('member_role', ['editor', 'viewer']);
+
 export const sites = pgTable('sites', {
   id: uuid('id').primaryKey().defaultRandom(),
   slug: text('slug').notNull().unique(),
@@ -80,6 +82,8 @@ export const pageVersions = pgTable(
       .notNull()
       .references(() => users.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Bumped on every draft overwrite — the optimistic-concurrency token. */
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('page_versions_locale_no_uq').on(t.pageLocaleId, t.versionNo),
@@ -197,6 +201,9 @@ export const scheduledPublishes = pgTable(
     versionId: uuid('version_id')
       .notNull()
       .references(() => pageVersions.id, { onDelete: 'cascade' }),
+    /** Frozen content snapshot — what was approved at schedule time gets published,
+     *  even if the draft is edited afterwards. */
+    puckData: jsonb('puck_data').notNull().default({}),
     publishAt: timestamp('publish_at', { withTimezone: true }).notNull(),
     status: scheduleStatus('status').notNull().default('pending'),
     createdBy: text('created_by')
@@ -205,4 +212,20 @@ export const scheduledPublishes = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('scheduled_publishes_locale_idx').on(t.pageLocaleId)],
+);
+
+export const siteMembers = pgTable(
+  'site_members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    siteId: uuid('site_id')
+      .notNull()
+      .references(() => sites.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: memberRole('role').notNull().default('editor'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('site_members_uq').on(t.siteId, t.userId)],
 );
