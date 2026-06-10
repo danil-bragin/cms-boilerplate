@@ -120,6 +120,12 @@ importers:
       bullmq:
         specifier: ^5.78.0
         version: 5.78.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(postgres@3.4.9)
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
       sharp:
         specifier: ^0.34.0
         version: 0.34.5
