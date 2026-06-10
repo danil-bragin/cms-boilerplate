@@ -47,6 +47,11 @@ export interface SearchProps {
   placeholder: string;
 }
 
+export interface PostListProps {
+  heading: string;
+  limit: number;
+}
+
 export interface ButtonProps {
   label: string;
   href: string;
@@ -61,6 +66,7 @@ export interface Components {
   Image: ImageProps;
   Button: ButtonProps;
   Search: SearchProps;
+  PostList: PostListProps;
 }
 
 export interface RootProps {

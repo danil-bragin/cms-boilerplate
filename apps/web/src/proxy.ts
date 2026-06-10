@@ -117,6 +117,17 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
     return new NextResponse('Not found', { status: 404 });
   }
 
+  // canonical URL normalization: lowercase + no trailing slash. Mixed-case and
+  // slashed variants 301 to one canonical form instead of 404 — kills
+  // duplicate-URL signals at the edge before any rendering
+  const canonical =
+    pathname === '/' ? '/' : pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  if (canonical !== pathname) {
+    const url = req.nextUrl.clone();
+    url.pathname = canonical;
+    return NextResponse.redirect(url, 308);
+  }
+
   const host = (req.headers.get('host') ?? '').split(':')[0] ?? '';
   const sites = await siteMap();
   if (!sites) {
@@ -178,6 +189,6 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
 export const config = {
   // public traffic only — admin/api/preview/seo endpoints/static assets bypass the rewrite
   matcher: [
-    '/((?!_next|api|admin|preview|og|favicon\\.ico|robots\\.txt|sitemap\\.xml|indexnow\\.txt).*)',
+    '/((?!_next|api|admin|preview|og|favicon\\.ico|robots\\.txt|sitemap\\.xml|sitemaps|indexnow\\.txt|feed\\.xml).*)',
   ],
 };

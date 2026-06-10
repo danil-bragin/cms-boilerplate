@@ -83,11 +83,20 @@ export class PagesService {
       siteId: p.siteId,
       path: p.path,
       name: p.name,
+      kind: p.kind,
+      author: p.author,
       locales: locales.filter((l) => l.pageId === p.id).map((l) => summaries.get(l.id)!),
     }));
   }
 
-  async createPage(siteId: string, path: string, name: string, createdBy: string): Promise<PageSummary> {
+  async createPage(
+    siteId: string,
+    path: string,
+    name: string,
+    createdBy: string,
+    kind: 'page' | 'post' = 'page',
+    author?: string,
+  ): Promise<PageSummary> {
     const site = await this.db.query.sites.findFirst({ where: eq(sites.id, siteId) });
     if (!site) throw new NotFoundException({ code: 'site_not_found', message: 'Site not found' });
 
@@ -102,7 +111,10 @@ export class PagesService {
         throw new ConflictException({ code: 'page_exists', message: `Page ${normalized} already exists` });
       }
 
-      const [page] = await tx.insert(pages).values({ siteId, path: normalized, name }).returning();
+      const [page] = await tx
+        .insert(pages)
+        .values({ siteId, path: normalized, name, kind, author: author ?? null })
+        .returning();
       const [locale] = await tx
         .insert(pageLocales)
         .values({ pageId: page!.id, locale: site.defaultLocale })
@@ -122,6 +134,8 @@ export class PagesService {
         siteId,
         path: normalized,
         name,
+        kind,
+        author: author ?? null,
         locales: [
           {
             pageLocaleId: locale!.id,
@@ -177,7 +191,7 @@ export class PagesService {
    * automatic 301 redirects from the old URLs; affected cache tags returned
    * by the caller's revalidation.
    */
-  async renamePage(pageId: string, body: { path?: string; name?: string }) {
+  async renamePage(pageId: string, body: { path?: string; name?: string; kind?: 'page' | 'post'; author?: string | null }) {
     const page = await this.db.query.pages.findFirst({ where: eq(pages.id, pageId) });
     if (!page) throw new NotFoundException({ code: 'page_not_found', message: 'Page not found' });
     const newPath = body.path ? normalizePath(body.path) : page.path;
@@ -188,7 +202,12 @@ export class PagesService {
         await tx.execute(sql`SELECT id FROM pages WHERE id = ${pageId} FOR UPDATE`);
         await tx
           .update(pages)
-          .set({ path: newPath, name: body.name ?? page.name })
+          .set({
+            path: newPath,
+            name: body.name ?? page.name,
+            kind: body.kind ?? page.kind,
+            author: body.author === undefined ? page.author : body.author,
+          })
           .where(eq(pages.id, pageId));
 
         if (newPath === page.path) return;

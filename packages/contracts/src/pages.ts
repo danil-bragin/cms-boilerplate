@@ -13,6 +13,8 @@ export const localeSchema = z
 export const createPageBody = z.object({
   path: pathSchema,
   name: z.string().min(1).max(200),
+  kind: z.enum(['page', 'post']).default('page'),
+  author: z.string().max(120).optional(),
 });
 
 export const addLocaleBody = z.object({
@@ -22,6 +24,8 @@ export const addLocaleBody = z.object({
 export const updatePageBody = z.object({
   path: pathSchema.optional(),
   name: z.string().min(1).max(200).optional(),
+  kind: z.enum(['page', 'post']).optional(),
+  author: z.string().max(120).nullable().optional(),
 });
 export type UpdatePageBody = z.infer<typeof updatePageBody>;
 
@@ -51,6 +55,8 @@ export const pageSummary = z.object({
   siteId: z.uuid(),
   path: pathSchema,
   name: z.string(),
+  kind: z.enum(['page', 'post']).default('page'),
+  author: z.string().nullable().default(null),
   locales: z.array(localeSummary),
 });
 

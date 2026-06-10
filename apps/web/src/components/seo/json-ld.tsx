@@ -7,6 +7,10 @@ interface JsonLdProps {
     locale: string;
     path: string;
     publishedAt: Date;
+    kind?: 'page' | 'post';
+    author?: string | null;
+    firstPublishedAt?: Date | null;
+    image?: string;
   };
 }
 
@@ -47,6 +51,22 @@ export function JsonLd({ site, page }: JsonLdProps) {
         dateModified: page.publishedAt.toISOString(),
         isPartOf: { '@id': `${site.origin}/#website` },
       },
+      ...(page.kind === 'post'
+        ? [
+            {
+              '@type': 'Article',
+              '@id': `${page.url}/#article`,
+              headline: page.title,
+              description: page.description,
+              inLanguage: page.locale,
+              datePublished: (page.firstPublishedAt ?? page.publishedAt).toISOString(),
+              dateModified: page.publishedAt.toISOString(),
+              mainEntityOfPage: { '@id': `${page.url}/#webpage` },
+              ...(page.author ? { author: { '@type': 'Person', name: page.author } } : {}),
+              ...(page.image ? { image: page.image } : {}),
+            },
+          ]
+        : []),
       {
         '@type': 'BreadcrumbList',
         itemListElement: [

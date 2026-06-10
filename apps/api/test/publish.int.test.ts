@@ -231,4 +231,48 @@ describe('publish api', () => {
     expect(gone).toBeUndefined();
   });
 
+  it('post publish stamps firstPublishedAt once and fires the posts tag', async () => {
+    const page = await http()
+      .post(`/sites/${stack.siteId}/pages`)
+      .set(AUTH)
+      .send({ path: '/blog-post', name: 'Post', kind: 'post', author: 'Jane Doe' })
+      .expect(201);
+    const localeId = page.body.locales[0].pageLocaleId;
+    const draft = await http()
+      .put(`/page-locales/${localeId}/draft`)
+      .set(AUTH)
+      .send({ puckData: puck('post v1') })
+      .expect(200);
+
+    invalidate.mockClear();
+    await http()
+      .post(`/page-locales/${localeId}/publish`)
+      .set(AUTH)
+      .send({ versionId: draft.body.id })
+      .expect(201);
+    expect(invalidate).toHaveBeenCalledWith(
+      expect.arrayContaining([`posts:${stack.siteId}:en`]),
+    );
+
+    const { pages } = await import('@cms/db');
+    const row1 = await stack.db.query.pages.findFirst({ where: eq(pages.id, page.body.id) });
+    const stamped = row1!.firstPublishedAt;
+    expect(stamped).toBeTruthy();
+
+    // republish later → datePublished must not move
+    await http()
+      .put(`/page-locales/${localeId}/draft`)
+      .set(AUTH)
+      .send({ puckData: puck('post v2') })
+      .expect(200);
+    const v2 = await http().get(`/page-locales/${localeId}/versions`).set(AUTH);
+    await http()
+      .post(`/page-locales/${localeId}/publish`)
+      .set(AUTH)
+      .send({ versionId: v2.body[0].id })
+      .expect(201);
+    const row2 = await stack.db.query.pages.findFirst({ where: eq(pages.id, page.body.id) });
+    expect(row2!.firstPublishedAt!.getTime()).toBe(stamped!.getTime());
+  });
+
 });

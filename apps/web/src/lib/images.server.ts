@@ -1,5 +1,6 @@
 import 'server-only';
-import { configureImages } from '@cms/puck-config';
+import { configureImages, configurePosts } from '@cms/puck-config';
+import { getLatestPosts } from './posts';
 
 /** Server module graph: sign imgproxy URLs directly — keys never reach the client. */
 configureImages({
@@ -9,3 +10,14 @@ configureImages({
   key: process.env.IMGPROXY_KEY ?? '',
   salt: process.env.IMGPROXY_SALT ?? '',
 });
+
+configurePosts(async (siteId, locale, limit) =>
+  (await getLatestPosts(siteId, locale, limit)).map((p) => ({
+    path: p.path,
+    locale: p.locale,
+    title: p.title,
+    description: p.description,
+    author: p.author,
+    firstPublishedAt: p.firstPublishedAt,
+  })),
+);

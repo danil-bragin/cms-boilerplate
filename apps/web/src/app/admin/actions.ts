@@ -29,11 +29,17 @@ export async function listPages(siteId: string) {
   return run(() => api<PageSummary[]>(`/sites/${siteId}/pages`));
 }
 
-export async function createPage(siteId: string, path: string, name: string) {
+export async function createPage(
+  siteId: string,
+  path: string,
+  name: string,
+  kind: 'page' | 'post' = 'page',
+  author?: string,
+) {
   const result = await run(() =>
     api<PageSummary>(`/sites/${siteId}/pages`, {
       method: 'POST',
-      body: JSON.stringify({ path, name }),
+      body: JSON.stringify({ path, name, kind, author }),
     }),
   );
   revalidatePath('/admin');

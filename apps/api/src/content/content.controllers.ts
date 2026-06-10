@@ -41,7 +41,7 @@ export class SitesController {
     @CurrentUser() user: AuthContext,
   ) {
     await this.access.assertSiteAccess(user, siteId);
-    return this.pagesService.createPage(siteId, body.path, body.name, user.sub);
+    return this.pagesService.createPage(siteId, body.path, body.name, user.sub, body.kind, body.author);
   }
 }
 

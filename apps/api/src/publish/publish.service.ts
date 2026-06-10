@@ -132,6 +132,14 @@ export class PublishService {
         );
       await tx.update(pageVersions).set({ status: 'published' }).where(eq(pageVersions.id, versionId));
 
+      // Article datePublished: stamp once, never moves on republish
+      if (!ctx.page.firstPublishedAt) {
+        await tx
+          .update(pages)
+          .set({ firstPublishedAt: new Date() })
+          .where(and(eq(pages.id, ctx.page.id), sql`first_published_at IS NULL`));
+      }
+
       const [snapshot] = await tx
         .insert(publishedPages)
         .values({
@@ -238,6 +246,12 @@ export class PublishService {
     });
     const tags = new Set<string>([this.tag(siteId, locale, path), `alts:${pageId}`]);
     for (const s of siblings) tags.add(this.tag(siteId, s.locale, s.path));
+    // post listings (PostList component, RSS) re-render on any post change
+    const page = await this.db.query.pages.findFirst({
+      where: eq(pages.id, pageId),
+      columns: { kind: true },
+    });
+    if (page?.kind === 'post') tags.add(`posts:${siteId}:${locale}`);
     return [...tags];
   }
 

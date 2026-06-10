@@ -6,6 +6,8 @@ import { addLocale, createPage } from '@/app/admin/actions';
 export function CreatePageForm({ siteId }: { siteId: string }) {
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
+  const [kind, setKind] = useState<'page' | 'post'>('page');
+  const [author, setAuthor] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -16,7 +18,7 @@ export function CreatePageForm({ siteId }: { siteId: string }) {
         e.preventDefault();
         setError(null);
         startTransition(async () => {
-          const result = await createPage(siteId, path, name);
+          const result = await createPage(siteId, path, name, kind, author || undefined);
           if (!result.ok) setError(result.error?.message ?? 'failed');
           else {
             setPath('');
@@ -40,6 +42,18 @@ export function CreatePageForm({ siteId }: { siteId: string }) {
         required
         style={{ padding: 6 }}
       />
+      <select value={kind} onChange={(e) => setKind(e.target.value as 'page' | 'post')} style={{ padding: 6 }}>
+        <option value="page">page</option>
+        <option value="post">post</option>
+      </select>
+      {kind === 'post' && (
+        <input
+          placeholder="Author"
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
+          style={{ padding: 6 }}
+        />
+      )}
       <button type="submit" disabled={pending} style={{ padding: '6px 14px' }}>
         {pending ? 'Creating…' : 'Create page'}
       </button>

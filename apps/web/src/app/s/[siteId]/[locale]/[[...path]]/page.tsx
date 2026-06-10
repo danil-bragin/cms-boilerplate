@@ -72,7 +72,11 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     metadataBase: new URL(origin),
     title,
     ...(description ? { description } : {}),
-    alternates: { canonical, languages },
+    alternates: {
+      canonical,
+      languages,
+      types: { 'application/rss+xml': `${origin}/feed.xml?locale=${page.locale}` },
+    },
     robots: {
       index: true,
       follow: true,
@@ -119,6 +123,10 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             locale: page.locale,
             path: page.path,
             publishedAt: page.publishedAt,
+            kind: page.kind,
+            author: page.author,
+            firstPublishedAt: page.firstPublishedAt,
+            image: `${origin}/og/${page.pageId}?locale=${page.locale}&v=${Date.parse(String(page.publishedAt))}`,
           }}
         />
       )}

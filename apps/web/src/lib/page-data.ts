@@ -1,7 +1,7 @@
 import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
-import { publishedPages, sites } from '@cms/db';
+import { pages, publishedPages, sites } from '@cms/db';
 import { db } from './db';
 
 export interface SiteInfo {
@@ -48,6 +48,9 @@ export interface PublishedPage {
   puckData: unknown;
   seo: { title?: string; description?: string };
   publishedAt: Date;
+  kind: 'page' | 'post';
+  author: string | null;
+  firstPublishedAt: Date | null;
 }
 
 /**
@@ -58,8 +61,14 @@ export const getPublishedPage = (siteId: string, locale: string, path: string) =
   unstable_cache(
     async (): Promise<PublishedPage | null> => {
       const rows = await db()
-        .select()
+        .select({
+          published: publishedPages,
+          kind: pages.kind,
+          author: pages.author,
+          firstPublishedAt: pages.firstPublishedAt,
+        })
         .from(publishedPages)
+        .innerJoin(pages, eq(pages.id, publishedPages.pageId))
         .where(
           and(
             eq(publishedPages.siteId, siteId),
@@ -71,13 +80,16 @@ export const getPublishedPage = (siteId: string, locale: string, path: string) =
       const row = rows[0];
       if (!row) return null;
       return {
-        siteId: row.siteId,
-        locale: row.locale,
-        path: row.path,
-        pageId: row.pageId,
-        puckData: row.puckData,
-        seo: row.seo as PublishedPage['seo'],
-        publishedAt: row.publishedAt,
+        siteId: row.published.siteId,
+        locale: row.published.locale,
+        path: row.published.path,
+        pageId: row.published.pageId,
+        puckData: row.published.puckData,
+        seo: row.published.seo as PublishedPage['seo'],
+        publishedAt: row.published.publishedAt,
+        kind: row.kind,
+        author: row.author,
+        firstPublishedAt: row.firstPublishedAt,
       };
     },
     ['published-page', siteId, locale, path],

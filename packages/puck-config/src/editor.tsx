@@ -137,6 +137,14 @@ export function createEditorConfig(
         fields: { placeholder: { type: 'text', label: 'Placeholder' } },
         defaultProps: { placeholder: 'Search…' },
       },
+      PostList: {
+        ...renderConfig.components.PostList,
+        fields: {
+          heading: { type: 'text', label: 'Heading' },
+          limit: { type: 'number', label: 'Posts to show', min: 1, max: 50 },
+        },
+        defaultProps: { heading: 'Latest posts', limit: 10 },
+      },
       Button: {
         ...renderConfig.components.Button,
         fields: {

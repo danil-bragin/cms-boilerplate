@@ -3,6 +3,7 @@ import type { ColumnsProps, SectionProps } from './types.js';
 import type { Components, RootProps } from './types.js';
 import { imageUrl } from './image-url.js';
 import { SearchBox } from './components/search-box.js';
+import { PostListServer } from './post-list.js';
 
 /**
  * RSC-safe config: render functions only, no hooks, no client code.
@@ -95,6 +96,23 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
     },
     Search: {
       render: ({ placeholder }) => <SearchBox placeholder={placeholder || 'Search…'} />,
+    },
+    PostList: {
+      render: ({ heading, limit, puck }) => {
+        // editor canvas runs client-side where the resolver isn't available
+        if (typeof window !== 'undefined') {
+          return (
+            <section style={{ border: '1px dashed #bbb', borderRadius: 8, padding: 16, color: '#777' }}>
+              {heading || 'Post list'} — latest {limit} posts (renders on the site)
+            </section>
+          );
+        }
+        const meta = (puck?.metadata ?? {}) as { siteId?: string; locale?: string };
+        if (!meta.siteId || !meta.locale) return <></>;
+        return (
+          <PostListServer siteId={meta.siteId} locale={meta.locale} limit={limit} heading={heading} />
+        );
+      },
     },
     Button: {
       render: ({ label, href, variant }) => (

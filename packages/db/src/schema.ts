@@ -19,6 +19,7 @@ export const redirectStatus = pgEnum('redirect_status', ['301', '302']);
 export const scheduleStatus = pgEnum('schedule_status', ['pending', 'done', 'cancelled', 'failed']);
 
 export const memberRole = pgEnum('member_role', ['editor', 'viewer']);
+export const pageKind = pgEnum('page_kind', ['page', 'post']);
 
 export const sites = pgTable('sites', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -48,9 +49,14 @@ export const pages = pgTable(
     // normalized: leading '/', no trailing '/'
     path: text('path').notNull(),
     name: text('name').notNull(),
+    /** 'post' gets Article JSON-LD, RSS inclusion, PostList listing */
+    kind: pageKind('kind').notNull().default('page'),
+    author: text('author'),
+    /** datePublished for Article schema — set once on first publish */
+    firstPublishedAt: timestamp('first_published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('pages_site_path_uq').on(t.siteId, t.path)],
+  (t) => [uniqueIndex('pages_site_path_uq').on(t.siteId, t.path), index('pages_kind_idx').on(t.siteId, t.kind)],
 );
 
 export const pageLocales = pgTable(
