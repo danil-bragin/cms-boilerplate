@@ -1,6 +1,7 @@
 {
   "realm": "cms",
   "enabled": true,
+  "sslRequired": "none",
   "registrationAllowed": false,
   "roles": {
     "realm": [
