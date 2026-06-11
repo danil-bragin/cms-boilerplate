@@ -335,3 +335,28 @@ export async function deleteAuthor(id: string) {
   revalidatePath('/admin/authors');
   return result;
 }
+
+// --- GSC URL inspection ---
+
+export interface GscResult {
+  configured: boolean;
+  url?: string;
+  verdict?: string;
+  coverageState?: string;
+  lastCrawlTime?: string | null;
+  googleCanonical?: string | null;
+  pageFetchState?: string;
+  error?: string;
+}
+
+export async function gscInspect(siteId: string, locale: string, path: string) {
+  return run(() =>
+    api<GscResult>(`/sites/${siteId}/gsc/inspect?locale=${encodeURIComponent(locale)}&path=${encodeURIComponent(path)}`),
+  );
+}
+
+export async function updateGscSettings(siteId: string, gsc: { propertyUrl?: string; serviceAccount: { client_email: string; private_key: string } | null }) {
+  const result = await run(() => api(`/sites/${siteId}`, { method: 'PATCH', body: JSON.stringify({ gsc }) }));
+  revalidatePath('/admin/gsc');
+  return result;
+}

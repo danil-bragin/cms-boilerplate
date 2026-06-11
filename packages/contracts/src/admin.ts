@@ -35,6 +35,15 @@ export const updateSiteBody = z.object({
       sameAs: z.array(z.url()).max(20).optional(),
     })
     .optional(),
+  gsc: z
+    .object({
+      propertyUrl: z.string().max(500).optional(),
+      serviceAccount: z
+        .object({ client_email: z.string(), private_key: z.string() })
+        .nullable()
+        .optional(),
+    })
+    .optional(),
 });
 
 export const updatePageLocaleBody = z.object({

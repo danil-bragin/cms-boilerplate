@@ -40,3 +40,10 @@ set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`, open http://localhost:1
 | `CLOUDFLARE_ZONE_ID` / `CLOUDFLARE_API_TOKEN` | worker | Cloudflare purge-by-URL credentials. |
 | `CLOUDFRONT_DISTRIBUTION_ID` | worker | CloudFront invalidation target (uses ambient AWS credentials/IRSA). |
 | `NEXT_PUBLIC_VITALS_SAMPLE` | web (client) | RUM sampling rate 0..1 (default 1). Beacons land at `/api/vitals` → OTel histograms `web_vitals_*`. |
+
+## Search Console (optional, per-site)
+
+Configured in site settings (not env): paste a Google service-account JSON in
+the admin Search Console page. The SA's `client_email` must be added as a user
+of the GSC property. Unconfigured sites return `{configured:false}` — no-op.
+Quota: 2000 URL inspections/day, 600/min per property.

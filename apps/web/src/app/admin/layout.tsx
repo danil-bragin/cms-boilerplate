@@ -31,6 +31,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <Link href="/admin/menus" style={{ fontSize: 14, color: '#555' }}>Menus</Link>
           <Link href="/admin/authors" style={{ fontSize: 14, color: '#555' }}>Authors</Link>
           <Link href="/admin/webhooks" style={{ fontSize: 14, color: '#555' }}>Webhooks</Link>
+          <Link href="/admin/gsc" style={{ fontSize: 14, color: '#555' }}>Search Console</Link>
         </span>
         <span style={{ fontSize: 14, color: '#555' }}>
           {session.email} ({session.roles.join(', ') || 'no role'}) ·{' '}

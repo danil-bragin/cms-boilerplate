@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
 import {
@@ -25,6 +26,7 @@ import type { AuthContext } from '@cms/auth';
 import { Roles } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { AdminService } from './admin.service.js';
+import { GscService } from './gsc.service.js';
 import { SiteAccessService } from '../auth/site-access.service.js';
 
 class CreateSiteDto extends createZodDto(createSiteBody) {}
@@ -109,7 +111,19 @@ export class ContentAdminController {
   constructor(
     @Inject(AdminService) private readonly adminService: AdminService,
     @Inject(SiteAccessService) private readonly access: SiteAccessService,
+    @Inject(GscService) private readonly gsc: GscService,
   ) {}
+
+  @Get('sites/:siteId/gsc/inspect')
+  async gscInspect(
+    @Param('siteId', ParseUUIDPipe) siteId: string,
+    @Query('locale') locale: string,
+    @Query('path') path: string,
+    @CurrentUser() user: AuthContext,
+  ) {
+    await this.access.assertSiteAccess(user, siteId, false);
+    return this.gsc.inspectPage(siteId, locale || 'en', path || '/');
+  }
 
   @Get('sites/:siteId/menus')
   async listMenus(@Param('siteId', ParseUUIDPipe) siteId: string, @CurrentUser() user: AuthContext) {

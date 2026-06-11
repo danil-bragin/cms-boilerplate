@@ -3,7 +3,7 @@ import { diffPuck } from '../puck-diff';
 
 const mk = (title: string, blocks: Array<{ id: string; type: string; [k: string]: unknown }>) => ({
   root: { props: { title } },
-  content: blocks.map((b) => ({ type: b.type, props: { id: b.id, ...b } })),
+  content: blocks.map(({ id, type, ...rest }) => ({ type, props: { id, ...rest } })),
   zones: {},
 });
 
@@ -19,11 +19,11 @@ describe('diffPuck', () => {
     ]);
     const d = diffPuck(from, to);
     expect(d.rootChanges).toContainEqual({ key: 'title', from: 'Old', to: 'New' });
-    const byId = Object.fromEntries(d.blocks.map((b) => [b.id, b]));
-    expect(byId['a'].status).toBe('changed');
-    expect(byId['a'].propChanges).toContainEqual({ key: 'text', from: 'Hi', to: 'Hello' });
-    expect(byId['b'].status).toBe('removed');
-    expect(byId['c'].status).toBe('added');
+    const byId: Record<string, (typeof d.blocks)[number]> = Object.fromEntries(d.blocks.map((b) => [b.id, b]));
+    expect(byId['a']!.status).toBe('changed');
+    expect(byId['a']!.propChanges).toContainEqual({ key: 'text', from: 'Hi', to: 'Hello' });
+    expect(byId['b']!.status).toBe('removed');
+    expect(byId['c']!.status).toBe('added');
   });
 
   it('reports no diff for identical payloads', () => {
