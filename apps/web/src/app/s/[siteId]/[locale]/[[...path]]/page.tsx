@@ -5,6 +5,7 @@ import { Render } from '@puckeditor/core/rsc';
 import { renderConfig } from '@cms/puck-config/render';
 import '@/lib/images.server';
 import { imageUrl } from '@cms/puck-config';
+import { findPriorityImage } from '@/lib/lcp-preload';
 import {
   getPublishedAlternates,
   getPublishedPage,
@@ -61,12 +62,17 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const languages: Record<string, string> = Object.fromEntries(
     alternates.map((a) => [a.locale, publicUrl(origin, a.locale, a.path)]),
   );
-  const defaultVariant = alternates.find((a) => a.locale === site.defaultLocale);
-  if (defaultVariant) {
-    languages['x-default'] = publicUrl(origin, defaultVariant.locale, defaultVariant.path);
+  // x-default → default-locale variant if published, else the first available
+  // alternate (never leave a multilingual page without an x-default)
+  const xDefault = alternates.find((a) => a.locale === site.defaultLocale) ?? alternates[0];
+  if (xDefault) {
+    languages['x-default'] = publicUrl(origin, xDefault.locale, xDefault.path);
   }
 
-  const title = page.seo.title ?? '';
+  const siteName = (site.settings as { org?: { name?: string } }).org?.name ?? site.slug;
+  const pageTitle = page.seo.title || siteName;
+  // brand suffix on inner pages, bare name on the homepage
+  const title = page.path === '/' ? pageTitle : `${pageTitle} | ${siteName}`;
   const description = page.seo.description ?? '';
   // editor-chosen social image wins; generated text card is the fallback
   const ogImage = page.seo.ogImageKey
@@ -83,7 +89,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
       types: { 'application/rss+xml': `${origin}/feed.xml?locale=${page.locale}` },
     },
     robots: {
-      index: true,
+      index: !(page.seo as { noindex?: boolean }).noindex,
       follow: true,
       'max-snippet': -1,
       'max-image-preview': 'large',
@@ -92,8 +98,8 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     openGraph: {
       type: 'website',
       url: canonical,
-      siteName: site.slug,
-      title,
+      siteName,
+      title: pageTitle,
       description,
       locale: page.locale,
       alternateLocale: alternates.map((a) => a.locale).filter((l) => l !== page.locale),
@@ -101,7 +107,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: pageTitle,
       description,
       images: [ogImage],
     },
@@ -125,9 +131,32 @@ export default async function Page({ params }: { params: Promise<Params> }) {
 
   const site = await getSiteById(siteId);
   const origin = site ? siteOrigin(site) : '';
+  const siteName = site
+    ? ((site.settings as { org?: { name?: string } }).org?.name ?? site.slug)
+    : '';
+
+  // preload the above-the-fold (priority) image so the browser fetches it
+  // immediately instead of discovering it deep in the parsed HTML
+  const lcp = findPriorityImage(page.puckData);
 
   return (
     <>
+      {lcp && (
+        <link
+          rel="preload"
+          as="image"
+          imageSrcSet={[640, 1280, 1920].map((w) => `${imageUrl(lcp, { width: w })} ${w}w`).join(', ')}
+          imageSizes="(max-width: 768px) 100vw, 1280px"
+        />
+      )}
+      {page.kind === 'post' && (
+        <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>
+          {page.author ? `By ${page.author} · ` : ''}
+          <time dateTime={(page.firstPublishedAt ?? page.publishedAt).toISOString()}>
+            {(page.firstPublishedAt ?? page.publishedAt).toLocaleDateString(page.locale)}
+          </time>
+        </p>
+      )}
       {site && (
         <JsonLd
           site={{
@@ -136,12 +165,13 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             org: (site.settings as { org?: { name?: string; logoUrl?: string; sameAs?: string[] } }).org,
           }}
           page={{
-            title: page.seo.title ?? '',
+            title: page.seo.title || siteName,
             description: page.seo.description ?? '',
             url: publicUrl(origin, page.locale, page.path),
             locale: page.locale,
             path: page.path,
             publishedAt: page.publishedAt,
+            isHome: page.path === '/',
             kind: page.kind,
             author: page.author,
             firstPublishedAt: page.firstPublishedAt,

@@ -58,6 +58,7 @@ export default async function PublicLayout({
     <html lang={locale}>
       <head>
         {imgproxyOrigin && <link rel="preconnect" href={imgproxyOrigin} />}
+        <meta name="theme-color" content="#1a1a2e" />
         <style dangerouslySetInnerHTML={{ __html: globalCss }} />
         <script type="speculationrules" dangerouslySetInnerHTML={{ __html: speculationRules }} />
       </head>

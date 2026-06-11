@@ -46,7 +46,7 @@ export interface PublishedPage {
   path: string;
   pageId: string;
   puckData: unknown;
-  seo: { title?: string; description?: string; ogImageKey?: string };
+  seo: { title?: string; description?: string; ogImageKey?: string; noindex?: boolean };
   publishedAt: Date;
   kind: 'page' | 'post';
   author: string | null;

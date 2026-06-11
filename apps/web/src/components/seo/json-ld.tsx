@@ -15,6 +15,7 @@ interface JsonLdProps {
     author?: string | null;
     firstPublishedAt?: Date | null;
     image?: string;
+    isHome?: boolean;
   };
 }
 
@@ -65,6 +66,7 @@ export function JsonLd({ site, page }: JsonLdProps) {
         name: page.title,
         description: page.description,
         inLanguage: page.locale,
+        datePublished: (page.firstPublishedAt ?? page.publishedAt).toISOString(),
         dateModified: page.publishedAt.toISOString(),
         isPartOf: { '@id': `${site.origin}/#website` },
       },
@@ -80,12 +82,18 @@ export function JsonLd({ site, page }: JsonLdProps) {
               dateModified: page.publishedAt.toISOString(),
               mainEntityOfPage: { '@id': `${page.url}/#webpage` },
               ...(page.author ? { author: { '@type': 'Person', name: page.author } } : {}),
-              ...(page.image ? { image: page.image } : {}),
+              ...(page.image
+                ? { image: [{ '@type': 'ImageObject', url: page.image, width: 1200, height: 630 }] }
+                : {}),
+              ...(site.org ? { publisher: { '@id': `${site.origin}/#organization` } } : {}),
             },
           ]
         : []),
-      {
+      ...(page.isHome
+        ? []
+        : [{
         '@type': 'BreadcrumbList',
+        '@id': `${page.url}/#breadcrumb`,
         itemListElement: [
           {
             '@type': 'ListItem',
@@ -95,7 +103,7 @@ export function JsonLd({ site, page }: JsonLdProps) {
           },
           ...breadcrumbs,
         ],
-      },
+      }]),
     ],
   };
 

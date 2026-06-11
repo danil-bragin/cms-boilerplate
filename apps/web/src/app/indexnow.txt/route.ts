@@ -1,14 +1,14 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { sites } from '@cms/db';
+
 import { db } from '@/lib/db';
+import { resolveSiteByHost } from '@/lib/site-resolver';
 
 export const dynamic = 'force-dynamic';
 
 /** IndexNow key file (referenced via keyLocation in the ping payload). */
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const host = (req.headers.get('host') ?? '').split(':')[0] ?? '';
-  const allSites = await db().select().from(sites);
-  const site = allSites.find((s) => s.domains.includes(host));
+  const site = await resolveSiteByHost(host);
   const key = (site?.settings as { indexNowKey?: string } | undefined)?.indexNowKey;
   if (!key) return new NextResponse('Not found', { status: 404 });
   return new NextResponse(key, {

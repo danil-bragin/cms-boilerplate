@@ -13,6 +13,7 @@ interface RootProps {
   title?: string;
   description?: string;
   ogImage?: { s3Key?: string };
+  noindex?: boolean;
 }
 
 /** Full flattened text content for full-text search. */
@@ -73,6 +74,7 @@ export class PublishService {
       // empty description hurts SEO scores — fall back to page text content
       description: rootProps.description || extractDescription(version.puckData) || '',
       ...(rootProps.ogImage?.s3Key ? { ogImageKey: rootProps.ogImage.s3Key } : {}),
+      ...(rootProps.noindex ? { noindex: true } : {}),
     };
     const searchText = [seo.title, seo.description, extractSearchText(version.puckData)]
       .filter(Boolean)
@@ -162,18 +164,22 @@ export class PublishService {
       return snapshot!.publishedAt;
     });
 
-    // after commit — stale-until-retry on failure, never a failed publish
-    await this.revalidate.invalidate([
+    // after commit — independent side effects run in parallel; stale-until-retry
+    // on failure, never a failed publish
+    const tags = [
       ...(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path)),
       ...staleTags,
+    ];
+    await Promise.all([
+      this.revalidate.invalidate(tags),
+      this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path),
+      this.dispatchWebhooks(ctx.page.siteId, 'page.published', {
+        pageId: ctx.page.id,
+        locale: ctx.locale.locale,
+        path,
+        versionId,
+      }),
     ]);
-    await this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path);
-    await this.dispatchWebhooks(ctx.page.siteId, 'page.published', {
-      pageId: ctx.page.id,
-      locale: ctx.locale.locale,
-      path,
-      versionId,
-    });
 
     return { versionId, publishedAt };
   }
@@ -199,13 +205,17 @@ export class PublishService {
         );
     });
 
-    await this.revalidate.invalidate(await this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path));
-    await this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path);
-    await this.dispatchWebhooks(ctx.page.siteId, 'page.unpublished', {
-      pageId: ctx.page.id,
-      locale: ctx.locale.locale,
-      path,
-    });
+    await Promise.all([
+      this.tagsFor(ctx.page.id, ctx.page.siteId, ctx.locale.locale, path).then((t) =>
+        this.revalidate.invalidate(t),
+      ),
+      this.enqueueSeoPing(ctx.page.siteId, ctx.locale.locale, path),
+      this.dispatchWebhooks(ctx.page.siteId, 'page.unpublished', {
+        pageId: ctx.page.id,
+        locale: ctx.locale.locale,
+        path,
+      }),
+    ]);
     return { ok: true };
   }
 
@@ -215,13 +225,17 @@ export class PublishService {
     const subscribers = await this.db.query.webhooks.findMany({
       where: and(eq(webhooks.siteId, siteId), eq(webhooks.active, true)),
     });
-    for (const hook of subscribers.filter((h) => h.events.includes(event))) {
-      await this.webhookQueue.add(
-        'deliver',
-        { url: hook.url, secret: hook.secret, event, payload: { ...payload, siteId } },
-        { attempts: 5, backoff: { type: 'exponential', delay: 3000 } },
-      );
-    }
+    await Promise.all(
+      subscribers
+        .filter((h) => h.events.includes(event))
+        .map((hook) =>
+          this.webhookQueue!.add(
+            'deliver',
+            { url: hook.url, secret: hook.secret, event, payload: { ...payload, siteId } },
+            { attempts: 5, backoff: { type: 'exponential', delay: 3000 } },
+          ),
+        ),
+    );
   }
 
   /** IndexNow notification (Bing/Yandex/Naver + ChatGPT search via Bing index). */

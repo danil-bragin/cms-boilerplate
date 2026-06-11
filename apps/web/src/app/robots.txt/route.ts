@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { sites } from '@cms/db';
+
 import { db } from '@/lib/db';
+import { resolveSiteByHost } from '@/lib/site-resolver';
 import { siteOrigin } from '@/lib/page-data';
 
 export const dynamic = 'force-dynamic';
@@ -14,18 +15,25 @@ export const dynamic = 'force-dynamic';
 const AI_TRAINING_BOTS = [
   'GPTBot',
   'ClaudeBot',
+  'anthropic-ai',
   'Google-Extended',
   'Applebot-Extended',
   'Meta-ExternalAgent',
   'FacebookBot',
   'CCBot',
   'Bytespider',
+  'Amazonbot',
+  'cohere-ai',
+  'Diffbot',
+  'Omgilibot',
+  'ImagesiftBot',
+  'PanguBot',
+  'Timpibot',
 ];
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const host = (req.headers.get('host') ?? '').split(':')[0] ?? '';
-  const allSites = await db().select().from(sites);
-  const site = allSites.find((s) => s.domains.includes(host));
+  const site = await resolveSiteByHost(host);
   if (!site) {
     return new NextResponse('User-agent: *\nDisallow: /\n', {
       headers: { 'content-type': 'text/plain' },

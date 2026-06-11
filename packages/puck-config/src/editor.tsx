@@ -19,8 +19,16 @@ export function createEditorConfig(
         title: { type: 'text', label: 'Title (SEO)' },
         description: { type: 'textarea', label: 'Description (SEO)' },
         ogImage: { ...opts.mediaField, label: 'Social image (og:image)' },
+        noindex: {
+          type: 'radio',
+          label: 'Search engines',
+          options: [
+            { label: 'Index', value: false },
+            { label: 'Noindex', value: true },
+          ],
+        },
       },
-      defaultProps: { title: '', description: '' },
+      defaultProps: { title: '', description: '', noindex: false },
     },
     categories: {
       layout: { components: ['Section', 'Columns'], title: 'Layout' },

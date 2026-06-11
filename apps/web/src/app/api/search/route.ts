@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { and, eq, sql } from 'drizzle-orm';
-import { publishedPages, sites } from '@cms/db';
+import { sql } from 'drizzle-orm';
+import { publishedPages } from '@cms/db';
+import { resolveSiteByHost } from '@/lib/site-resolver';
 import { db } from '@/lib/db';
 
 /**
@@ -36,37 +37,39 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ results: [] });
   }
 
-  const allSites = await db().select().from(sites);
-  const site = allSites.find((s) => s.domains.includes(host));
+  const site = await resolveSiteByHost(host);
   if (!site) return NextResponse.json({ results: [] }, { status: 404 });
 
+  // two-phase: rank+limit against the GIN-indexed generated tsvector first,
+  // then ts_headline only the 20 survivors (headline re-parses text — expensive)
   const tsquery = sql`websearch_to_tsquery('simple', ${q})`;
-  const rank = sql<number>`ts_rank(to_tsvector('simple', ${publishedPages.searchText}), ${tsquery})`;
-  const rows = await db()
-    .select({
-      path: publishedPages.path,
-      locale: publishedPages.locale,
-      seo: publishedPages.seo,
-      rank: rank.as('rank'),
-      snippet: sql<string>`ts_headline('simple', ${publishedPages.searchText}, ${tsquery},
-        'MaxWords=30, MinWords=15, MaxFragments=1')`.as('snippet'),
-    })
-    .from(publishedPages)
-    .where(
-      and(
-        eq(publishedPages.siteId, site.id),
-        locale ? eq(publishedPages.locale, locale) : undefined,
-        sql`to_tsvector('simple', ${publishedPages.searchText}) @@ ${tsquery}`,
-      ),
+  const rows = await db().execute<{
+    path: string;
+    locale: string;
+    seo: { title?: string };
+    snippet: string;
+  }>(sql`
+    WITH ranked AS (
+      SELECT path, locale, seo, search_text,
+             ts_rank(search_vector, ${tsquery}) AS rank
+      FROM published_pages
+      WHERE site_id = ${site.id}
+        ${locale ? sql`AND locale = ${locale}` : sql``}
+        AND search_vector @@ ${tsquery}
+      ORDER BY rank DESC
+      LIMIT 20
     )
-    .orderBy(sql`${rank} DESC`)
-    .limit(20);
+    SELECT path, locale, seo,
+           ts_headline('simple', search_text, ${tsquery},
+             'MaxWords=30, MinWords=15, MaxFragments=1') AS snippet
+    FROM ranked
+  `);
 
   return NextResponse.json(
     {
       results: rows.map((r) => ({
         url: `/${r.locale}${r.path === '/' ? '' : r.path}`,
-        title: (r.seo as { title?: string }).title ?? '',
+        title: r.seo?.title ?? '',
         snippet: r.snippet,
         locale: r.locale,
       })),

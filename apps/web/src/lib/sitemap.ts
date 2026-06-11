@@ -1,6 +1,6 @@
 import 'server-only';
 import { NextResponse, type NextRequest } from 'next/server';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { publishedPages } from '@cms/db';
 import { db } from './db';
 
@@ -25,27 +25,52 @@ export async function shardXml(
 ): Promise<{ xml: string; lastModified: Date }> {
   const rows = await db()
     .select({
+      pageId: publishedPages.pageId,
       locale: publishedPages.locale,
       path: publishedPages.path,
       publishedAt: publishedPages.publishedAt,
     })
     .from(publishedPages)
-    .where(eq(publishedPages.siteId, siteId))
+    // exclude noindex pages from the sitemap
+    .where(
+      and(
+        eq(publishedPages.siteId, siteId),
+        sql`(${publishedPages.seo} ->> 'noindex') IS DISTINCT FROM 'true'`,
+      ),
+    )
     .orderBy(asc(publishedPages.publishedAt))
     .limit(SHARD_SIZE)
     .offset(shard * SHARD_SIZE);
+
+  // group locales per page for hreflang xhtml:link alternates
+  const byPage = new Map<string, Array<{ locale: string; path: string }>>();
+  for (const r of rows) {
+    const list = byPage.get(r.pageId) ?? [];
+    list.push({ locale: r.locale, path: r.path });
+    byPage.set(r.pageId, list);
+  }
 
   let lastModified = new Date(0);
   const urls = rows
     .map((r) => {
       if (r.publishedAt > lastModified) lastModified = r.publishedAt;
       const loc = `${origin}/${r.locale}${r.path === '/' ? '' : r.path}`;
-      return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${r.publishedAt.toISOString()}</lastmod>\n  </url>`;
+      const alts = byPage.get(r.pageId) ?? [];
+      const links =
+        alts.length > 1
+          ? alts
+              .map(
+                (a) =>
+                  `\n    <xhtml:link rel="alternate" hreflang="${a.locale}" href="${escapeXml(`${origin}/${a.locale}${a.path === '/' ? '' : a.path}`)}"/>`,
+              )
+              .join('')
+          : '';
+      return `  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${r.publishedAt.toISOString()}</lastmod>${links}\n  </url>`;
     })
     .join('\n');
 
   return {
-    xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`,
+    xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${urls}\n</urlset>\n`,
     lastModified,
   };
 }

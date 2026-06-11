@@ -142,7 +142,7 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
   if (pathname === '/') {
     const url = req.nextUrl.clone();
     url.pathname = `/${site.defaultLocale}`;
-    return NextResponse.redirect(url, 307);
+    return NextResponse.redirect(url, 308); // permanent: locale-prefix is the canonical home
   }
 
   // editor-managed redirects win over everything (path moves, vanity URLs)
@@ -189,6 +189,6 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
 export const config = {
   // public traffic only — admin/api/preview/seo endpoints/static assets bypass the rewrite
   matcher: [
-    '/((?!_next|api|admin|preview|og|favicon\\.ico|robots\\.txt|sitemap\\.xml|sitemaps|indexnow\\.txt|feed\\.xml).*)',
+    '/((?!_next|api|admin|preview|og|favicon\\.ico|icon|apple-icon|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|sitemaps|indexnow\\.txt|feed\\.xml).*)',
   ],
 };

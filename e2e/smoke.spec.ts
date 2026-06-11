@@ -62,5 +62,5 @@ test('editor flow: login → create page → edit → publish → public', async
     )
     .toBe(200);
   await page.goto(`/en/${slug}`);
-  await expect(page).toHaveTitle(pageTitle);
+  await expect(page).toHaveTitle(new RegExp(pageTitle));
 });

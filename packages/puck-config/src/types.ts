@@ -74,4 +74,6 @@ export interface RootProps {
   description: string;
   /** editor-chosen social/OG image; generated card is the fallback */
   ogImage?: MediaRef;
+  /** exclude from search engines + sitemap */
+  noindex?: boolean;
 }

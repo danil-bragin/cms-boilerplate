@@ -9,9 +9,16 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  customType,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
+
+const tsvector = customType<{ data: string }>({
+  dataType() {
+    return 'tsvector';
+  },
+});
 
 export const versionStatus = pgEnum('version_status', ['draft', 'published', 'archived']);
 export const mediaStatus = pgEnum('media_status', ['uploading', 'ready', 'failed']);
@@ -56,7 +63,11 @@ export const pages = pgTable(
     firstPublishedAt: timestamp('first_published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('pages_site_path_uq').on(t.siteId, t.path), index('pages_kind_idx').on(t.siteId, t.kind)],
+  (t) => [
+    uniqueIndex('pages_site_path_uq').on(t.siteId, t.path),
+    index('pages_kind_idx').on(t.siteId, t.kind),
+    index('pages_posts_sort_idx').on(t.siteId, t.kind, t.firstPublishedAt.desc()),
+  ],
 );
 
 export const pageLocales = pgTable(
@@ -115,15 +126,16 @@ export const publishedPages = pgTable(
     seo: jsonb('seo').notNull().default({}),
     /** Flattened text content for full-text search; filled at publish. */
     searchText: text('search_text').notNull().default(''),
+    /** Generated tsvector — ts_rank reads the precomputed vector, no per-row re-parse. */
+    searchVector: tsvector('search_vector').generatedAlwaysAs(
+      sql`to_tsvector('simple', search_text)`,
+    ),
     publishedAt: timestamp('published_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('published_pages_uq').on(t.siteId, t.locale, t.path),
     index('published_pages_page_idx').on(t.pageId),
-    index('published_pages_search_idx').using(
-      'gin',
-      sql`to_tsvector('simple', ${t.searchText})`,
-    ),
+    index('published_pages_search_idx').using('gin', t.searchVector),
   ],
 );
 

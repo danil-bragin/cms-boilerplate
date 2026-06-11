@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { sites } from '@cms/db';
+
 import { db } from '@/lib/db';
+import { resolveSiteByHost } from '@/lib/site-resolver';
 import { siteOrigin } from '@/lib/page-data';
 import { shardXml, conditional304 } from '@/lib/sitemap';
 
@@ -18,8 +19,7 @@ export async function GET(
   }
 
   const host = (req.headers.get('host') ?? '').split(':')[0] ?? '';
-  const allSites = await db().select().from(sites);
-  const site = allSites.find((s) => s.domains.includes(host));
+  const site = await resolveSiteByHost(host);
   if (!site) return new NextResponse('Not found', { status: 404 });
 
   const origin = siteOrigin({ ...site, settings: site.settings as Record<string, unknown> });
