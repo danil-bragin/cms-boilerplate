@@ -21,6 +21,9 @@ function sessionKey(): Uint8Array {
   if (!secret || secret.length < 64) {
     throw new Error('SESSION_SECRET must be a 32-byte hex string');
   }
+  if (process.env.NODE_ENV === 'production' && /^0+$/.test(secret)) {
+    throw new Error('SESSION_SECRET is the all-zeros placeholder — set a real secret in production');
+  }
   return Uint8Array.from(Buffer.from(secret, 'hex'));
 }
 

@@ -10,6 +10,23 @@ interface ServiceAccount {
   private_key: string;
 }
 
+export const GSC_INSPECT_ENDPOINT =
+  'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect';
+
+/** Build the inspection request payload (pure — unit-tested). */
+export function buildInspectionRequest(
+  origin: string,
+  locale: string,
+  path: string,
+  propertyUrl: string | undefined,
+): { inspectionUrl: string; siteUrl: string; languageCode: string } {
+  return {
+    inspectionUrl: `${origin}/${locale}${path === '/' ? '' : path}`,
+    siteUrl: propertyUrl ?? `${origin}/`,
+    languageCode: locale,
+  };
+}
+
 /**
  * Google Search Console URL Inspection. Per-site service-account JSON in
  * site.settings.gsc.serviceAccount (the SA must be added as a user of the GSC
@@ -32,8 +49,12 @@ export class GscService {
     }
 
     const origin = siteOrigin(site);
-    const inspectionUrl = `${origin}/${locale}${path === '/' ? '' : path}`;
-    const siteUrl = gsc.propertyUrl ?? `${origin}/`;
+    const { inspectionUrl, siteUrl, languageCode } = buildInspectionRequest(
+      origin,
+      locale,
+      path,
+      gsc.propertyUrl,
+    );
 
     const jwt = new JWT({
       email: gsc.serviceAccount.client_email,
@@ -53,9 +74,9 @@ export class GscService {
           };
         };
       }>({
-        url: 'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
+        url: GSC_INSPECT_ENDPOINT,
         method: 'POST',
-        data: { inspectionUrl, siteUrl, languageCode: locale },
+        data: { inspectionUrl, siteUrl, languageCode },
       });
       const idx = res.data.inspectionResult?.indexStatusResult ?? {};
       return {

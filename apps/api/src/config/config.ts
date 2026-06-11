@@ -21,6 +21,12 @@ const envSchema = z.object({
 
 export type AppConfig = z.infer<typeof envSchema>;
 
+// Known dev placeholders that must never reach production.
+const PLACEHOLDER_SECRETS = new Set([
+  '1111111111111111111111111111111111111111111111111111111111111111',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+]);
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = envSchema.safeParse(env);
   if (!parsed.success) {
@@ -28,6 +34,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       .map((i) => `${i.path.join('.')}: ${i.message}`)
       .join('; ');
     throw new Error(`Invalid environment: ${issues}`);
+  }
+  if (env.NODE_ENV === 'production' && PLACEHOLDER_SECRETS.has(parsed.data.REVALIDATE_SECRET)) {
+    throw new Error('REVALIDATE_SECRET is a known placeholder — set a real secret in production');
   }
   return parsed.data;
 }

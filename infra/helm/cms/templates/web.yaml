@@ -12,6 +12,12 @@ spec:
     metadata:
       labels: { app: {{ .Release.Name }}-web }
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: {{ .Release.Name }}-web }
       containers:
         - name: web
           image: {{ .Values.images.web }}

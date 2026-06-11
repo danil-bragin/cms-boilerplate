@@ -19,6 +19,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm turbo lint
       - run: pnpm turbo build typecheck
       - name: Unit tests (no containers)
         run: pnpm turbo test --filter=@cms/contracts --filter=@cms/auth --filter=@cms/puck-config --filter=worker --filter=web

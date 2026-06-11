@@ -3,12 +3,22 @@ import { configureImages, configurePosts } from '@cms/puck-config';
 import { getLatestPosts, getPostsPage } from './posts';
 
 /** Server module graph: sign imgproxy URLs directly — keys never reach the client. */
+const imgproxyKey = process.env.IMGPROXY_KEY ?? '';
+const imgproxySalt = process.env.IMGPROXY_SALT ?? '';
+// runtime-only: the build phase has no real secrets and signs nothing
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.NEXT_PHASE !== 'phase-production-build' &&
+  (!imgproxyKey || !imgproxySalt)
+) {
+  throw new Error('IMGPROXY_KEY and IMGPROXY_SALT must be set in production (signed image URLs)');
+}
 configureImages({
   mode: 'imgproxy',
   baseUrl: process.env.IMGPROXY_URL ?? 'http://localhost:8081',
   bucket: process.env.S3_BUCKET ?? 'cms-media',
-  key: process.env.IMGPROXY_KEY ?? '',
-  salt: process.env.IMGPROXY_SALT ?? '',
+  key: imgproxyKey,
+  salt: imgproxySalt,
 });
 
 const mapPost = (p: { path: string; locale: string; title: string; description: string; author: string | null; firstPublishedAt: string }) => ({
