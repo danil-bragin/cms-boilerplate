@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isValidHostname, isValidLocale } from '../inputs';
+import { isValidHostname, isValidLocale } from '../validators';
 
 describe('admin input validators', () => {
   it('validates hostnames', () => {

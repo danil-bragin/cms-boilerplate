@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+export { isValidHostname, isValidLocale } from './validators';
 
 /**
  * Admin input primitives, styled with shadcn/Tailwind tokens. Replace raw JSON /
@@ -179,14 +180,3 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
     </label>
   );
 }
-
-export function isValidHostname(s: string): boolean {
-  return /^[a-z0-9.-]+$/.test(s) && s.length <= 253;
-}
-
-export function isValidLocale(s: string): boolean {
-  return /^[a-z]{2}(-[A-Z]{2})?$/.test(s);
-}
-
-/** @deprecated kept for callers still passing inline style — prefer shadcn Input */
-export const inputStyle = {} as const;
