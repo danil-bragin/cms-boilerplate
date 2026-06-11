@@ -1,24 +1,27 @@
 'use client';
 
 import { useTransition } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function LocaleSwitcher({ current }: { current: string }) {
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
   return (
-    <select
+    <Select
       value={current}
-      disabled={pending}
-      onChange={(e) =>
+      onValueChange={(value) =>
         start(() => {
-          document.cookie = `admin_locale=${e.target.value}; path=/; max-age=31536000`;
+          document.cookie = `admin_locale=${value}; path=/; max-age=31536000`;
           window.location.reload();
         })
       }
-      style={{ padding: 2, fontSize: 13 }}
-      aria-label="Language"
     >
-      <option value="en">EN</option>
-      <option value="ru">RU</option>
-    </select>
+      <SelectTrigger className="h-8 w-[72px]" aria-label="Language">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="en">EN</SelectItem>
+        <SelectItem value="ru">RU</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }
