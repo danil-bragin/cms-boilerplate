@@ -62,7 +62,7 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
         ),
     },
     Image: {
-      render: ({ media, alt, rounded, priority }) => {
+      render: ({ media, alt, rounded, priority, ratio }) => {
         if (!media?.s3Key) {
           return (
             <div style={{ background: '#eee', padding: 48, textAlign: 'center', color: '#888' }}>
@@ -70,13 +70,28 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
             </div>
           );
         }
-        const ratio =
-          media.width && media.height ? `${media.width} / ${media.height}` : undefined;
+        const ratios: Record<string, [number, number] | null> = {
+          auto: null,
+          '16:9': [16, 9],
+          '4:3': [4, 3],
+          '1:1': [1, 1],
+        };
+        const crop = ratios[ratio ?? 'auto'];
+        const focal =
+          crop
+            ? { focalX: (media.focalX ?? 50) / 100, focalY: (media.focalY ?? 50) / 100 }
+            : undefined;
+        const aspect = crop
+          ? `${crop[0]} / ${crop[1]}`
+          : media.width && media.height
+            ? `${media.width} / ${media.height}`
+            : undefined;
+        const heightFor = (w: number) => (crop ? Math.round((w * crop[1]) / crop[0]) : undefined);
         return (
           <img
-            src={imageUrl(media.s3Key, { width: 1280 })}
+            src={imageUrl(media.s3Key, { width: 1280, height: heightFor(1280), crop: focal })}
             srcSet={[640, 1280, 1920]
-              .map((w) => `${imageUrl(media.s3Key, { width: w })} ${w}w`)
+              .map((w) => `${imageUrl(media.s3Key, { width: w, height: heightFor(w), crop: focal })} ${w}w`)
               .join(', ')}
             sizes="(max-width: 768px) 100vw, 1280px"
             alt={alt || media.alt || ''}
@@ -86,7 +101,8 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
             style={{
               width: '100%',
               height: 'auto',
-              aspectRatio: ratio,
+              aspectRatio: aspect,
+              objectFit: crop ? 'cover' : undefined,
               borderRadius: rounded ? 8 : 0,
               background: media.blurDataUrl ? `url(${media.blurDataUrl}) center / cover` : undefined,
             }}

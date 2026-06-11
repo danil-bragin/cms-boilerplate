@@ -257,6 +257,10 @@ export async function updateMediaAlt(mediaId: string, alt: Record<string, string
   return run(() => api(`/media/${mediaId}`, { method: 'PATCH', body: JSON.stringify({ alt }) }));
 }
 
+export async function updateMediaFocal(mediaId: string, focalX: number, focalY: number) {
+  return run(() => api(`/media/${mediaId}`, { method: 'PATCH', body: JSON.stringify({ focalX, focalY }) }));
+}
+
 export async function deleteMedia(mediaId: string) {
   return run(() => api(`/media/${mediaId}`, { method: 'DELETE' }));
 }

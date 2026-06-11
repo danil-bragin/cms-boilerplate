@@ -20,6 +20,8 @@ export function configureImages(next: ImageUrlConfig): void {
 export interface ImageUrlOptions {
   width?: number;
   height?: number;
+  /** crop to exact width×height using focal-point gravity (0..1) */
+  crop?: { focalX?: number; focalY?: number };
 }
 
 export function imageUrl(s3Key: string, opts: ImageUrlOptions = {}): string {
@@ -31,11 +33,20 @@ export function imageUrl(s3Key: string, opts: ImageUrlOptions = {}): string {
     const params = new URLSearchParams();
     if (w) params.set('w', String(w));
     if (h) params.set('h', String(h));
+    if (opts.crop) {
+      params.set('fx', String(opts.crop.focalX ?? 0.5));
+      params.set('fy', String(opts.crop.focalY ?? 0.5));
+    }
     const qs = params.toString();
     return `${config.basePath}/${s3Key}${qs ? `?${qs}` : ''}`;
   }
 
-  const path = `/rs:fit:${w}:${h}/plain/s3://${config.bucket}/${s3Key}`;
+  // crop (rs:fill + focal gravity) when an explicit crop is requested, else fit
+  const ops =
+    opts.crop && w && h
+      ? `/rs:fill:${w}:${h}/g:fp:${(opts.crop.focalX ?? 0.5).toFixed(2)}:${(opts.crop.focalY ?? 0.5).toFixed(2)}`
+      : `/rs:fit:${w}:${h}`;
+  const path = `${ops}/plain/s3://${config.bucket}/${s3Key}`;
   const signature = sign(path, config.key, config.salt);
   return `${config.baseUrl}/${signature}${path}`;
 }

@@ -21,8 +21,11 @@ export async function GET(
   const url = new URL(req.url);
   const width = Number(url.searchParams.get('w') ?? 0) || undefined;
   const height = Number(url.searchParams.get('h') ?? 0) || undefined;
+  const fx = url.searchParams.get('fx');
+  const fy = url.searchParams.get('fy');
+  const crop = fx || fy ? { focalX: Number(fx ?? 0.5), focalY: Number(fy ?? 0.5) } : undefined;
 
-  const target = imageUrl(s3Key, { width, height });
+  const target = imageUrl(s3Key, { width, height, crop });
   if (!target) return NextResponse.json({ error: 'images not configured' }, { status: 503 });
   return NextResponse.redirect(target, { status: 302 });
 }

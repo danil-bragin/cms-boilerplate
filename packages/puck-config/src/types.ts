@@ -9,6 +9,8 @@ export interface MediaRef {
   height?: number | null;
   blurDataUrl?: string | null;
   alt?: string;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 
 export interface SectionProps {
@@ -41,6 +43,8 @@ export interface ImageProps {
   rounded: boolean;
   /** LCP hint: above-the-fold images load eagerly with fetchpriority=high. */
   priority: boolean;
+  /** crop to a fixed aspect ratio using the media focal point */
+  ratio: 'auto' | '16:9' | '4:3' | '1:1';
 }
 
 export interface SearchProps {

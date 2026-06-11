@@ -37,6 +37,8 @@ export const mediaDto = z.object({
   height: z.number().nullable(),
   blurhash: z.string().nullable(),
   blurDataUrl: z.string().nullable(),
+  focalX: z.number().default(50),
+  focalY: z.number().default(50),
   alt: z.record(z.string(), z.string()),
   status: z.enum(['uploading', 'ready', 'failed']),
   createdAt: z.coerce.date(),

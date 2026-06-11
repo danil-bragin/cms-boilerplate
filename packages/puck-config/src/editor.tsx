@@ -138,8 +138,18 @@ export function createEditorConfig(
             { label: 'Yes', value: true },
             { label: 'No', value: false },
           ] },
+          ratio: {
+            type: 'select',
+            label: 'Crop ratio (uses focal point)',
+            options: [
+              { label: 'Original', value: 'auto' },
+              { label: '16:9', value: '16:9' },
+              { label: '4:3', value: '4:3' },
+              { label: '1:1', value: '1:1' },
+            ],
+          },
         },
-        defaultProps: { alt: '', rounded: false, priority: false },
+        defaultProps: { alt: '', rounded: false, priority: false, ratio: 'auto' },
       },
       Search: {
         ...renderConfig.components.Search,

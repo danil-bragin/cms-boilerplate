@@ -153,6 +153,9 @@ export const media = pgTable('media', {
   height: integer('height'),
   blurhash: text('blurhash'),
   blurDataUrl: text('blur_data_url'),
+  /** focal point 0..1 for smart cropping (imgproxy gravity fp:x:y) */
+  focalX: integer('focal_x').notNull().default(50),
+  focalY: integer('focal_y').notNull().default(50),
   // {[locale]: string}
   alt: jsonb('alt').notNull().default({}),
   status: mediaStatus('status').notNull().default('uploading'),

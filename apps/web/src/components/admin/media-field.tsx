@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import type { CustomField } from '@puckeditor/core';
 import type { MediaRef } from '@cms/puck-config';
 import type { MediaDto } from '@cms/contracts';
-import { confirmUpload, deleteMedia, listMedia, presignUpload, updateMediaAlt } from '@/app/admin/actions';
+import { confirmUpload, deleteMedia, listMedia, presignUpload, updateMediaAlt, updateMediaFocal } from '@/app/admin/actions';
 
 export function mediaField(siteId: string): CustomField<MediaRef | undefined> {
   return {

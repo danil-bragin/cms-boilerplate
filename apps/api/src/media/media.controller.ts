@@ -70,7 +70,7 @@ export class MediaController {
     @CurrentUser() user: AuthContext,
   ) {
     await this.access.assertSiteAccess(user, await this.access.siteForMedia(id));
-    return this.mediaService.updateAlt(id, body.alt);
+    return this.mediaService.updateMedia(id, body);
   }
 
   @Delete('media/:id')

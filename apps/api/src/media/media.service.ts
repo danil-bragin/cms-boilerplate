@@ -100,9 +100,16 @@ export class MediaService {
     });
   }
 
-  async updateAlt(mediaId: string, alt: Record<string, string>) {
+  async updateMedia(
+    mediaId: string,
+    patch: { alt?: Record<string, string>; focalX?: number; focalY?: number },
+  ) {
     await this.mustGet(mediaId);
-    const [updated] = await this.db.update(media).set({ alt }).where(eq(media.id, mediaId)).returning();
+    const set: Record<string, unknown> = {};
+    if (patch.alt !== undefined) set.alt = patch.alt;
+    if (patch.focalX !== undefined) set.focalX = patch.focalX;
+    if (patch.focalY !== undefined) set.focalY = patch.focalY;
+    const [updated] = await this.db.update(media).set(set).where(eq(media.id, mediaId)).returning();
     return updated!;
   }
 
