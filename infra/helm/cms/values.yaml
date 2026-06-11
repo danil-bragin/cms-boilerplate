@@ -23,7 +23,8 @@ api:
     limits: { cpu: 500m, memory: 512Mi }
 
 worker:
-  replicas: 1
+  # BullMQ coordinates concurrency, so >1 is safe and removes the SPOF
+  replicas: 2
   resources:
     requests: { cpu: 500m, memory: 512Mi }
     limits: { cpu: "1", memory: 1Gi }
@@ -40,3 +41,15 @@ imgproxy:
 existingSecret: cms-secrets
 # Name of an existing ConfigMap with non-secret env
 existingConfigMap: cms-config
+
+# In-cluster Redis (working default). For real prod use a managed pair and
+# point REDIS_URL (queue, noeviction) + REDISHOST/REDISPORT (cache, keyspace
+# events) at them via the secret/configmap instead.
+redis:
+  deployInCluster: true
+
+# Connection-ceiling guard: each web pod opens ~12 PG connections
+# (renderer pool 10 + proxy pool 2). web.hpa.maxReplicas × 12 + api + worker
+# must stay under Postgres max_connections. Past ~7 web replicas, front
+# Postgres with PgBouncer (transaction pooling) and point DATABASE_URL at it.
+# Set PG_POOL_MAX lower per pod as an alternative.

@@ -21,11 +21,18 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo build typecheck
       - name: Unit tests (no containers)
-        run: pnpm turbo test --filter=@cms/contracts --filter=@cms/auth --filter=@cms/puck-config --filter=worker
+        run: pnpm turbo test --filter=@cms/contracts --filter=@cms/auth --filter=@cms/puck-config --filter=worker --filter=web
 
   integration:
     runs-on: ubuntu-latest
     # Testcontainers needs the host docker daemon — available on ubuntu runners
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_DB: cms, POSTGRES_USER: cms, POSTGRES_PASSWORD: cms }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cms" --health-interval 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -35,6 +42,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm turbo build --filter=@cms/db --filter=@cms/contracts --filter=@cms/auth
+      - name: Verify migrations apply cleanly
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: postgres://cms:cms@localhost:5433/cms
       - name: API integration tests (Testcontainers)
         run: pnpm --filter api test
 

@@ -31,5 +31,7 @@ COPY --from=prod-deps --chown=app:app /repo/apps/worker/node_modules ./apps/work
 COPY --from=build --chown=app:app /repo/packages ./packages
 COPY --from=build --chown=app:app /repo/apps/worker/dist ./apps/worker/dist
 COPY --from=build --chown=app:app /repo/apps/worker/package.json ./apps/worker/
+EXPOSE 3002
 USER app
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD node -e "fetch('http://localhost:3002/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "apps/worker/dist/main.js"]

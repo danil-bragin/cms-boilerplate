@@ -1,0 +1,11 @@
+{{- range $svc := list "web" "api" }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $.Release.Name }}-{{ $svc }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: { app: {{ $.Release.Name }}-{{ $svc }} }
+---
+{{- end }}

@@ -139,7 +139,21 @@ cdnPurgeWorker.on('failed', (job, err) => {
   console.error(`cdn-purge ${job?.id} failed: ${err.message}`);
 });
 
-console.log('worker started: media-process, invalidation, seo-ping, webhook, cdn-purge');
+// minimal liveness endpoint so k8s can restart a wedged worker
+const healthPort = Number(process.env.WORKER_HEALTH_PORT ?? 3002);
+const { createServer } = await import('node:http');
+const healthServer = createServer((req, res) => {
+  if (req.url === '/healthz') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{"ok":true}');
+  } else {
+    res.writeHead(404);
+    res.end();
+  }
+});
+healthServer.listen(healthPort);
+
+console.log(`worker started: media-process, invalidation, seo-ping, webhook, cdn-purge (health :${healthPort})`);
 
 async function shutdown() {
   await Promise.all([
@@ -149,6 +163,7 @@ async function shutdown() {
     webhookWorker.close(),
     cdnPurgeWorker.close(),
   ]);
+  healthServer.close();
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

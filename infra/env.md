@@ -47,3 +47,13 @@ Configured in site settings (not env): paste a Google service-account JSON in
 the admin Search Console page. The SA's `client_email` must be added as a user
 of the GSC property. Unconfigured sites return `{configured:false}` — no-op.
 Quota: 2000 URL inspections/day, 600/min per property.
+
+## Required (additional — added by later features)
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | web | **REQUIRED & identical across all web replicas.** Encrypts server-action payloads; per-pod keys break admin actions intermittently behind a load balancer. `openssl rand -base64 32`. |
+| `WEB_ORIGINS` | api | Comma-separated allowed CORS origins (default `http://localhost:3000`). Set to the real admin origin(s) or admin browser calls are blocked. |
+| `PG_POOL_MAX` | api, worker, web | Per-pool max PG connections (default 10). Size against (replicas × pools/pod) vs Postgres `max_connections`; add PgBouncer past ~7 web replicas. |
+| `NEXT_PUBLIC_IMGPROXY_URL` | web (client) | Public imgproxy origin for preconnect/CSP (falls back to `IMGPROXY_URL`). |
+| `REDIS_COMMAND_TIMEOUT_MS` | web | Cache-handler Redis GET timeout (default 200 via cache-handler.mjs). |

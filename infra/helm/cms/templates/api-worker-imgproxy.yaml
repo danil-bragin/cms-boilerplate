@@ -48,10 +48,15 @@ spec:
       containers:
         - name: worker
           image: {{ .Values.images.worker }}
+          ports: [{ containerPort: 3002 }]
           envFrom:
             - configMapRef: { name: {{ .Values.existingConfigMap }} }
             - secretRef: { name: {{ .Values.existingSecret }} }
           resources: {{- toYaml .Values.worker.resources | nindent 12 }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: 3002 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
 ---
 apiVersion: apps/v1
 kind: Deployment

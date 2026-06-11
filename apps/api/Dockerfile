@@ -29,8 +29,10 @@ RUN groupadd -r app && useradd -r -g app app
 COPY --from=prod-deps --chown=app:app /repo/node_modules ./node_modules
 COPY --from=prod-deps --chown=app:app /repo/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build --chown=app:app /repo/packages ./packages
+COPY --from=build --chown=app:app /repo/packages/db/migrations ./packages/db/migrations
 COPY --from=build --chown=app:app /repo/apps/api/dist ./apps/api/dist
 COPY --from=build --chown=app:app /repo/apps/api/package.json ./apps/api/
 USER app
 EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD node -e "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "apps/api/dist/main.js"]
