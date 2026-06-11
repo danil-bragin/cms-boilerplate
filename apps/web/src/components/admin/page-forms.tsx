@@ -3,6 +3,11 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useTranslations } from 'next-intl';
 import { addLocale, createPage, listAuthors, type AuthorRow } from '@/app/admin/actions';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/sonner';
 
 export function CreatePageForm({ siteId }: { siteId: string }) {
   const t = useTranslations('pages');
@@ -11,7 +16,6 @@ export function CreatePageForm({ siteId }: { siteId: string }) {
   const [kind, setKind] = useState<'page' | 'post'>('page');
   const [authorId, setAuthorId] = useState('');
   const [authors, setAuthors] = useState<AuthorRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -21,56 +25,62 @@ export function CreatePageForm({ siteId }: { siteId: string }) {
   }, [kind, siteId, authors.length]);
 
   return (
-    <form
-      style={{ display: 'flex', gap: 8, marginTop: 12 }}
-      onSubmit={(e) => {
-        e.preventDefault();
-        setError(null);
-        startTransition(async () => {
-          const selected = authors.find((a) => a.id === authorId);
-          const result = await createPage(siteId, path, name, kind, selected?.name, authorId || null);
-          if (!result.ok) setError(result.error?.message ?? 'failed');
-          else {
-            setPath('');
-            setName('');
-          }
-        });
-      }}
-    >
-      <input
-        placeholder="/path"
-        value={path}
-        onChange={(e) => setPath(e.target.value)}
-        required
-        pattern="^/([a-z0-9-]+(/[a-z0-9-]+)*)?$"
-        style={{ padding: 6, fontFamily: 'monospace' }}
-      />
-      <input
-        placeholder={t('pageName')}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        required
-        style={{ padding: 6 }}
-      />
-      <select value={kind} onChange={(e) => setKind(e.target.value as 'page' | 'post')} style={{ padding: 6 }}>
-        <option value="page">page</option>
-        <option value="post">post</option>
-      </select>
-      {kind === 'post' && (
-        <select value={authorId} onChange={(e) => setAuthorId(e.target.value)} style={{ padding: 6 }}>
-          <option value="">— author —</option>
-          {authors.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-      )}
-      <button type="submit" disabled={pending} style={{ padding: '6px 14px' }}>
-        {pending ? t('creating') : t('createPage')}
-      </button>
-      {error && <span style={{ color: '#c5221f', alignSelf: 'center' }}>{error}</span>}
-    </form>
+    <Card>
+      <CardContent className="pt-5">
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            startTransition(async () => {
+              const selected = authors.find((a) => a.id === authorId);
+              const result = await createPage(siteId, path, name, kind, selected?.name, authorId || null);
+              if (!result.ok) toast.error(result.error?.message ?? 'failed');
+              else {
+                toast.success('Page created');
+                setPath('');
+                setName('');
+              }
+            });
+          }}
+        >
+          <Input
+            placeholder="/path"
+            value={path}
+            onChange={(e) => setPath(e.target.value)}
+            required
+            pattern="^/([a-z0-9-]+(/[a-z0-9-]+)*)?$"
+            className="w-40 font-mono"
+          />
+          <Input placeholder={t('pageName')} value={name} onChange={(e) => setName(e.target.value)} required className="w-44" />
+          <Select value={kind} onValueChange={(v) => setKind(v as 'page' | 'post')}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="page">page</SelectItem>
+              <SelectItem value="post">post</SelectItem>
+            </SelectContent>
+          </Select>
+          {kind === 'post' && (
+            <Select value={authorId} onValueChange={setAuthorId}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="— author —" />
+              </SelectTrigger>
+              <SelectContent>
+                {authors.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button type="submit" disabled={pending}>
+            {pending ? t('creating') : t('createPage')}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -80,16 +90,7 @@ export function AddLocaleButton({ pageId, locale }: { pageId: string; locale: st
     <button
       disabled={pending}
       onClick={() => startTransition(async () => void (await addLocale(pageId, locale)))}
-      style={{
-        padding: '2px 10px',
-        marginRight: 6,
-        borderRadius: 12,
-        fontSize: 13,
-        background: '#fff',
-        border: '1px dashed #aaa',
-        color: '#555',
-        cursor: 'pointer',
-      }}
+      className="mr-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent disabled:opacity-50"
     >
       + {locale}
     </button>
@@ -114,24 +115,25 @@ export function SlugOverrideButton({
       <button
         onClick={() => setEditing(true)}
         title={`Localized slug for ${locale}${current ? `: ${current}` : ''}`}
-        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: '#888' }}
+        className="text-xs text-muted-foreground hover:text-foreground"
       >
         ✎{current ? ` ${current}` : ''}
       </button>
     );
   }
   return (
-    <span style={{ display: 'inline-flex', gap: 4 }}>
-      <input
+    <span className="inline-flex items-center gap-1">
+      <Input
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="localized-slug"
         pattern="[a-z0-9-]*"
-        style={{ padding: 2, fontSize: 12, width: 110 }}
+        className="h-7 w-28 text-xs"
       />
-      <button
+      <Button
+        size="sm"
+        variant="ghost"
         disabled={pending}
-        style={{ fontSize: 12 }}
         onClick={() =>
           startTransition(async () => {
             const { updateSlugOverride } = await import('@/app/admin/actions');
@@ -141,7 +143,7 @@ export function SlugOverrideButton({
         }
       >
         ✓
-      </button>
+      </Button>
     </span>
   );
 }
@@ -154,19 +156,22 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
   const [dupPath, setDupPath] = useState(`${path === '/' ? '' : path}-copy`);
   const [pending, startTransition] = useTransition();
 
+  const link = 'text-xs text-muted-foreground hover:text-foreground disabled:opacity-50';
+
   return (
-    <span style={{ display: 'inline-flex', gap: 6, marginLeft: 8 }}>
+    <span className="inline-flex items-center gap-2">
       {editing ? (
         <>
-          <input
+          <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
             pattern="^/([a-z0-9-]+(/[a-z0-9-]+)*)?$"
-            style={{ padding: 2, fontSize: 12, width: 140, fontFamily: 'monospace' }}
+            className="h-7 w-36 font-mono text-xs"
           />
-          <button
+          <Button
+            size="sm"
+            variant="ghost"
             disabled={pending}
-            style={{ fontSize: 12 }}
             onClick={() =>
               startTransition(async () => {
                 const { renamePage } = await import('@/app/admin/actions');
@@ -175,26 +180,27 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
               })
             }
           >
-            ✓ move (auto-301)
-          </button>
+            ✓ move
+          </Button>
         </>
       ) : (
-        <button onClick={() => setEditing(true)} style={{ fontSize: 12, color: '#888', border: 'none', background: 'none', cursor: 'pointer' }}>
-          rename
+        <button onClick={() => setEditing(true)} className={link}>
+          {t('rename')}
         </button>
       )}
       {duplicating ? (
         <>
-          <input
+          <Input
             value={dupPath}
             onChange={(e) => setDupPath(e.target.value)}
             pattern="^/([a-z0-9-]+(/[a-z0-9-]+)*)?$"
             placeholder="/new-path"
-            style={{ padding: 2, fontSize: 12, width: 140, fontFamily: 'monospace' }}
+            className="h-7 w-36 font-mono text-xs"
           />
-          <button
+          <Button
+            size="sm"
+            variant="ghost"
             disabled={pending || !dupPath}
-            style={{ fontSize: 12 }}
             onClick={() =>
               startTransition(async () => {
                 const { duplicatePage } = await import('@/app/admin/actions');
@@ -204,23 +210,19 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
             }
           >
             ✓ copy
-          </button>
-          <button style={{ fontSize: 12, color: '#888', border: 'none', background: 'none', cursor: 'pointer' }} onClick={() => setDuplicating(false)}>
+          </Button>
+          <button className={link} onClick={() => setDuplicating(false)}>
             ✕
           </button>
         </>
       ) : (
-        <button
-          disabled={pending}
-          style={{ fontSize: 12, color: '#888', border: 'none', background: 'none', cursor: 'pointer' }}
-          onClick={() => setDuplicating(true)}
-        >
+        <button disabled={pending} className={link} onClick={() => setDuplicating(true)}>
           {t('duplicate')}
         </button>
       )}
       <button
         disabled={pending}
-        style={{ fontSize: 12, color: '#c5221f', border: 'none', background: 'none', cursor: 'pointer' }}
+        className="text-xs text-destructive hover:opacity-80 disabled:opacity-50"
         onClick={() =>
           startTransition(async () => {
             if (window.confirm(`Delete ${path} with all versions and locales?`)) {

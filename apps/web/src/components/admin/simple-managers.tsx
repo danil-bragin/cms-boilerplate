@@ -16,9 +16,13 @@ import {
 } from '@/app/admin/actions';
 import { MenuTreeEditor } from './menu-editor';
 import { CheckboxGroup } from './inputs';
-
-const input = { padding: 6 } as const;
-
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/sonner';
 
 export function SitePicker({
   sites,
@@ -30,13 +34,20 @@ export function SitePicker({
   onChange: (siteId: string) => void;
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ padding: 6, marginBottom: 16 }}>
-      {sites.map((s) => (
-        <option key={s.id} value={s.id}>
-          {s.slug}
-        </option>
-      ))}
-    </select>
+    <div className="mb-5">
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-56">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {sites.map((s) => (
+            <SelectItem key={s.id} value={s.id}>
+              {s.slug}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -48,7 +59,6 @@ export function RedirectsManager({ sites }: { sites: SiteDto[] }) {
   const [fromPath, setFromPath] = useState('');
   const [toPath, setToPath] = useState('');
   const [status, setStatus] = useState<'301' | '302'>('301');
-  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   async function refresh(id = siteId) {
@@ -63,55 +73,77 @@ export function RedirectsManager({ sites }: { sites: SiteDto[] }) {
   return (
     <div>
       <SitePicker sites={sites} value={siteId} onChange={setSiteId} />
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
-        <thead>
-          <tr style={{ textAlign: 'left', color: '#666', fontSize: 13 }}>
-            <th style={{ padding: 6 }}>From</th>
-            <th style={{ padding: 6 }}>To</th>
-            <th style={{ padding: 6 }}>Code</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} style={{ borderTop: '1px solid #eee' }}>
-              <td style={{ padding: 6, fontFamily: 'monospace' }}>{r.fromPath}</td>
-              <td style={{ padding: 6, fontFamily: 'monospace' }}>{r.toPath}</td>
-              <td style={{ padding: 6 }}>{r.status}</td>
-              <td style={{ padding: 6 }}>
-                <button disabled={pending} onClick={() => start(async () => { await deleteRedirect(r.id); await refresh(); })}>
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <form
-        style={{ display: 'flex', gap: 8 }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          setError(null);
-          start(async () => {
-            const result = await createRedirect(siteId, { fromPath, toPath, status });
-            if (!result.ok) setError(result.error?.message ?? 'failed');
-            else {
-              setFromPath('');
-              setToPath('');
-              await refresh();
-            }
-          });
-        }}
-      >
-        <input style={{ ...input, flex: 1 }} placeholder="/en/old-path" value={fromPath} onChange={(e) => setFromPath(e.target.value)} required />
-        <input style={{ ...input, flex: 1 }} placeholder="/en/new-path or https://…" value={toPath} onChange={(e) => setToPath(e.target.value)} required />
-        <select style={input} value={status} onChange={(e) => setStatus(e.target.value as '301' | '302')}>
-          <option value="301">301 permanent</option>
-          <option value="302">302 temporary</option>
-        </select>
-        <button disabled={pending} style={{ padding: '6px 16px' }}>Add</button>
-      </form>
-      {error && <p style={{ color: '#c5221f' }}>{error}</p>}
+      <Card className="mb-5">
+        <CardContent className="pt-5">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>From</TableHead>
+                <TableHead>To</TableHead>
+                <TableHead>Code</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                    No redirects yet.
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono text-xs">{r.fromPath}</TableCell>
+                  <TableCell className="font-mono text-xs">{r.toPath}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{r.status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() => start(async () => { await deleteRedirect(r.id); await refresh(); })}
+                    >
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <form
+            className="mt-4 flex flex-wrap gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              start(async () => {
+                const result = await createRedirect(siteId, { fromPath, toPath, status });
+                if (!result.ok) toast.error(result.error?.message ?? 'failed');
+                else {
+                  toast.success('Redirect added');
+                  setFromPath('');
+                  setToPath('');
+                  await refresh();
+                }
+              });
+            }}
+          >
+            <Input className="flex-1 font-mono" placeholder="/en/old-path" value={fromPath} onChange={(e) => setFromPath(e.target.value)} required />
+            <Input className="flex-1 font-mono" placeholder="/en/new-path or https://…" value={toPath} onChange={(e) => setToPath(e.target.value)} required />
+            <Select value={status} onValueChange={(v) => setStatus(v as '301' | '302')}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="301">301 permanent</SelectItem>
+                <SelectItem value="302">302 temporary</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button disabled={pending}>Add</Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -129,7 +161,6 @@ export function MenusManager({ sites }: { sites: SiteDto[] }) {
   const [rows, setRows] = useState<MenuRow[]>([]);
   const [slug, setSlug] = useState('main');
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const siteLocales = sites.find((s) => s.id === siteId)?.locales ?? ['en'];
 
@@ -145,38 +176,54 @@ export function MenusManager({ sites }: { sites: SiteDto[] }) {
   return (
     <div>
       <SitePicker sites={sites} value={siteId} onChange={setSiteId} />
-      {rows.map((m) => (
-        <div key={m.id} style={{ border: '1px solid #eee', borderRadius: 6, padding: 10, marginBottom: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <strong>{m.slug}</strong>
-            <span>
-              <button onClick={() => { setSlug(m.slug); setItems(m.items); }}>Edit</button>{' '}
-              <button disabled={pending} onClick={() => start(async () => { await deleteMenu(m.id); await refresh(); })}>Delete</button>
-            </span>
-          </div>
-          <code style={{ fontSize: 12, color: '#777' }}>{m.items.length} items</code>
-        </div>
-      ))}
-      {rows.length === 0 && <p style={{ color: '#aaa', fontSize: 13 }}>No menus yet.</p>}
-      <h4>Create / update menu</h4>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-        <input style={{ ...input, border: '1px solid #d0d0d8', borderRadius: 6 }} placeholder="slug (e.g. main)" value={slug} onChange={(e) => setSlug(e.target.value)} />
-        <button
-          disabled={pending || !slug}
-          style={{ padding: '7px 18px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-          onClick={() =>
-            start(async () => {
-              const result = await upsertMenu(siteId, { slug, items });
-              setMessage(result.ok ? 'Saved' : result.error?.message ?? 'failed');
-              await refresh();
-            })
-          }
-        >
-          {pending ? 'Saving…' : 'Save menu'}
-        </button>
-        {message && <span style={{ color: message === 'Saved' ? '#137333' : '#c5221f' }}>{message}</span>}
+      <div className="mb-4 space-y-2">
+        {rows.map((m) => (
+          <Card key={m.id}>
+            <CardContent className="flex items-center justify-between py-3">
+              <div>
+                <strong className="text-sm">{m.slug}</strong>
+                <span className="ml-2 text-xs text-muted-foreground">{m.items.length} items</span>
+              </div>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={() => { setSlug(m.slug); setItems(m.items); }}>
+                  Edit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={() => start(async () => { await deleteMenu(m.id); await refresh(); })}
+                >
+                  Delete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {rows.length === 0 && <p className="text-sm text-muted-foreground">No menus yet.</p>}
       </div>
-      <MenuTreeEditor locales={siteLocales} value={items} onChange={setItems} />
+      <Card>
+        <CardContent className="pt-5">
+          <h4 className="mb-3 text-sm font-semibold">Create / update menu</h4>
+          <div className="mb-4 flex items-center gap-2">
+            <Input className="w-56" placeholder="slug (e.g. main)" value={slug} onChange={(e) => setSlug(e.target.value)} />
+            <Button
+              disabled={pending || !slug}
+              onClick={() =>
+                start(async () => {
+                  const result = await upsertMenu(siteId, { slug, items });
+                  if (result.ok) toast.success('Menu saved');
+                  else toast.error(result.error?.message ?? 'failed');
+                  await refresh();
+                })
+              }
+            >
+              {pending ? 'Saving…' : 'Save menu'}
+            </Button>
+          </div>
+          <MenuTreeEditor locales={siteLocales} value={items} onChange={setItems} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -189,7 +236,6 @@ export function WebhooksManager({ sites }: { sites: SiteDto[] }) {
   const [url, setUrl] = useState('');
   const [newSecret, setNewSecret] = useState<string | null>(null);
   const [events, setEvents] = useState<string[]>(['page.published', 'page.unpublished']);
-  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   async function refresh(id = siteId) {
@@ -205,69 +251,71 @@ export function WebhooksManager({ sites }: { sites: SiteDto[] }) {
     <div>
       <SitePicker sites={sites} value={siteId} onChange={setSiteId} />
       {newSecret && (
-        <p style={{ background: '#fef7e0', padding: 8, borderRadius: 6 }}>
-          Signing secret (shown once): <code>{newSecret}</code>
-        </p>
+        <Card className="mb-4 border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+          <CardContent className="py-3 text-sm">
+            Signing secret (shown once): <code className="font-mono">{newSecret}</code>
+          </CardContent>
+        </Card>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
-        <tbody>
-          {rows.map((w) => (
-            <tr key={w.id} style={{ borderTop: '1px solid #eee' }}>
-              <td style={{ padding: 6, fontFamily: 'monospace' }}>{w.url}</td>
-              <td style={{ padding: 6, color: '#777' }}>{w.events.join(', ')}</td>
-              <td style={{ padding: 6 }}>
-                <button disabled={pending} onClick={() => start(async () => { await deleteWebhook(w.id); await refresh(); })}>
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {rows.length === 0 && <p style={{ color: '#aaa', fontSize: 13 }}>No webhooks yet.</p>}
-      <form
-        style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 520 }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          setError(null);
-          start(async () => {
-            const result = await createWebhook(siteId, { url, events: events as ('page.published' | 'page.unpublished')[] });
-            if (!result.ok) setError(result.error?.message ?? 'failed');
-            else {
-              setNewSecret(result.data?.secret ?? null);
-              setUrl('');
-              await refresh();
-            }
-          });
-        }}
-      >
-        <input
-          style={{ ...input, border: '1px solid #d0d0d8', borderRadius: 6 }}
-          placeholder="https://example.com/hooks/cms"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          required
-        />
-        <div>
-          <span style={{ fontSize: 12, color: '#999' }}>Subscribe to events</span>
-          <CheckboxGroup
-            options={WEBHOOK_EVENTS.map((ev) => ({ value: ev, label: ev }))}
-            value={events}
-            onChange={setEvents}
-          />
-        </div>
-        <button
-          disabled={pending || !url || events.length === 0}
-          style={{ padding: '7px 18px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', alignSelf: 'flex-start' }}
-        >
-          Add webhook
-        </button>
-      </form>
-      {error && <p style={{ color: '#c5221f' }}>{error}</p>}
-      <p style={{ color: '#777', fontSize: 13 }}>
-        Deliveries are POSTs with <code>x-cms-event</code> and <code>x-cms-signature: sha256=HMAC(body)</code>,
-        retried 5× with backoff.
-      </p>
+      <Card className="mb-5">
+        <CardContent className="pt-5">
+          <Table>
+            <TableBody>
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="py-6 text-center text-muted-foreground">
+                    No webhooks yet.
+                  </TableCell>
+                </TableRow>
+              )}
+              {rows.map((w) => (
+                <TableRow key={w.id}>
+                  <TableCell className="font-mono text-xs">{w.url}</TableCell>
+                  <TableCell className="text-muted-foreground">{w.events.join(', ')}</TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() => start(async () => { await deleteWebhook(w.id); await refresh(); })}
+                    >
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <form
+            className="mt-4 flex max-w-lg flex-col gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              start(async () => {
+                const result = await createWebhook(siteId, { url, events: events as ('page.published' | 'page.unpublished')[] });
+                if (!result.ok) toast.error(result.error?.message ?? 'failed');
+                else {
+                  setNewSecret(result.data?.secret ?? null);
+                  setUrl('');
+                  toast.success('Webhook added');
+                  await refresh();
+                }
+              });
+            }}
+          >
+            <Input placeholder="https://example.com/hooks/cms" value={url} onChange={(e) => setUrl(e.target.value)} required />
+            <div className="space-y-1.5">
+              <span className="text-xs text-muted-foreground">Subscribe to events</span>
+              <CheckboxGroup options={WEBHOOK_EVENTS.map((ev) => ({ value: ev, label: ev }))} value={events} onChange={setEvents} />
+            </div>
+            <Button className="self-start" disabled={pending || !url || events.length === 0}>
+              Add webhook
+            </Button>
+          </form>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Deliveries are POSTs with <code>x-cms-event</code> and <code>x-cms-signature: sha256=HMAC(body)</code>, retried 5× with backoff.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

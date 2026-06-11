@@ -74,12 +74,25 @@ export async function getSession(opts: { refresh?: boolean } = {}): Promise<Sess
   if (!opts.refresh) return session;
 
   const { refreshSession } = await import('./oidc');
+  let next: Session;
   try {
-    const next = await refreshSession(session);
-    await sealSession(next);
-    return next;
+    next = await refreshSession(session);
   } catch {
-    await clearSession();
+    // refresh genuinely failed (revoked/expired refresh token) — drop the cookie
+    // if we can; ignore when called from an RSC render (cookie mutation forbidden)
+    try {
+      await clearSession();
+    } catch {
+      /* render context — cannot mutate cookies here */
+    }
     return null;
   }
+  // persist the rotated token when allowed; in an RSC render the cookie can't be
+  // written, but the freshly refreshed session is still valid for this request
+  try {
+    await sealSession(next);
+  } catch {
+    /* render context — token valid in-memory, persisted on the next mutation */
+  }
+  return next;
 }

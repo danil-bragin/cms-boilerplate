@@ -4,9 +4,15 @@ import { useEffect, useState, useTransition } from 'react';
 import type { PageSummary, SiteDto } from '@cms/contracts';
 import { gscInspect, listPages, updateGscSettings, type GscResult } from '@/app/admin/actions';
 import { SitePicker } from './simple-managers';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { toast } from '@/components/ui/sonner';
 
-const verdictColor = (v?: string) =>
-  v === 'PASS' ? '#137333' : v === 'NEUTRAL' ? '#b06000' : v === 'FAIL' ? '#c5221f' : '#888';
+const verdictVariant = (v?: string): 'success' | 'outline' | 'destructive' =>
+  v === 'PASS' ? 'success' : v === 'FAIL' ? 'destructive' : 'outline';
 
 export function GscDashboard({ sites }: { sites: SiteDto[] }) {
   const [siteId, setSiteId] = useState(sites[0]?.id ?? '');
@@ -15,8 +21,7 @@ export function GscDashboard({ sites }: { sites: SiteDto[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [sa, setSa] = useState<{ client_email: string; private_key: string } | null>(null);
   const [propertyUrl, setPropertyUrl] = useState('');
-  const [saError, setSaError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
   const [pending, start] = useTransition();
 
   useEffect(() => {
@@ -35,107 +40,119 @@ export function GscDashboard({ sites }: { sites: SiteDto[] }) {
     <div>
       <SitePicker sites={sites} value={siteId} onChange={setSiteId} />
 
-      <details style={{ marginBottom: 16 }}>
-        <summary style={{ cursor: 'pointer', color: '#555' }}>Configure service account</summary>
-        <p style={{ fontSize: 13, color: '#777' }}>
-          Paste a Google service-account JSON. Add its <code>client_email</code> as a user of the GSC
-          property. Stored in site settings; quota 2000 inspections/day.
-        </p>
-        <input
-          type="file"
-          accept="application/json,.json"
-          style={{ display: 'block', marginBottom: 8 }}
-          onChange={async (e) => {
-            setSaError(null);
-            const file = e.target.files?.[0];
-            if (!file) return;
-            try {
-              const parsed = JSON.parse(await file.text()) as { client_email?: string; private_key?: string };
-              if (!parsed.client_email || !parsed.private_key) {
-                setSaError('That JSON has no client_email / private_key — is it a service-account key file?');
-                return;
-              }
-              setSa({ client_email: parsed.client_email, private_key: parsed.private_key });
-            } catch {
-              setSaError('Could not parse that file as JSON');
-            }
-          }}
-        />
-        {sa && (
-          <p style={{ fontSize: 13, color: '#137333', margin: '0 0 8px' }}>
-            ✓ Loaded service account: <code>{sa.client_email}</code>
-          </p>
-        )}
-        {saError && <p style={{ fontSize: 13, color: '#c5221f', margin: '0 0 8px' }}>{saError}</p>}
-        <input
-          value={propertyUrl}
-          onChange={(e) => setPropertyUrl(e.target.value)}
-          placeholder="Property URL (optional, e.g. sc-domain:example.com)"
-          style={{ display: 'block', width: '100%', maxWidth: 420, padding: 7, marginBottom: 8, border: '1px solid #d0d0d8', borderRadius: 6 }}
-        />
-        <button
-          disabled={pending || !sa}
-          style={{ padding: '7px 18px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-          onClick={() =>
-            start(async () => {
-              setMessage(null);
-              const result = await updateGscSettings(siteId, {
-                serviceAccount: sa,
-                ...(propertyUrl ? { propertyUrl } : {}),
-              });
-              setMessage(result.ok ? 'Saved' : result.error?.message ?? 'failed');
-            })
-          }
-        >
-          Save credentials
-        </button>
-        {message && <span style={{ marginLeft: 8, color: message === 'Saved' ? '#137333' : '#c5221f' }}>{message}</span>}
-      </details>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ textAlign: 'left', color: '#666', fontSize: 13 }}>
-            <th style={{ padding: 6 }}>Path</th>
-            <th style={{ padding: 6 }}>Locale</th>
-            <th style={{ padding: 6 }}>Verdict</th>
-            <th style={{ padding: 6 }}>Coverage</th>
-            <th style={{ padding: 6 }}>Last crawl</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {pages.flatMap((page) =>
-            page.locales
-              .filter((l) => l.publishedVersionId)
-              .map((l) => {
-                const key = `${page.id}:${l.locale}`;
-                const r = results[key];
-                return (
-                  <tr key={key} style={{ borderTop: '1px solid #eee' }}>
-                    <td style={{ padding: 6, fontFamily: 'monospace' }}>{page.path}</td>
-                    <td style={{ padding: 6 }}>{l.locale}</td>
-                    <td style={{ padding: 6, color: verdictColor(r?.verdict) }}>{r?.verdict ?? '—'}</td>
-                    <td style={{ padding: 6, color: '#555' }}>{r?.coverageState ?? ''}</td>
-                    <td style={{ padding: 6, color: '#888', fontSize: 12 }}>
-                      {r?.lastCrawlTime ? new Date(r.lastCrawlTime).toLocaleDateString() : ''}
-                    </td>
-                    <td style={{ padding: 6 }}>
-                      <button disabled={busy === key} onClick={() => inspect(page, l.locale)}>
-                        {busy === key ? '…' : r ? 'Refresh' : 'Inspect'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              }),
+      <Card className="mb-5">
+        <CardContent className="pt-4">
+          <button
+            type="button"
+            onClick={() => setConfigOpen((v) => !v)}
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            {configOpen ? '▾' : '▸'} Configure service account
+          </button>
+          {configOpen && (
+            <div className="mt-3 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Upload a Google service-account JSON key. Add its <code>client_email</code> as a user of the
+                GSC property. Stored in site settings; quota 2000 inspections/day.
+              </p>
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="block text-sm file:mr-3 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1.5 file:text-sm hover:file:bg-accent"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const parsed = JSON.parse(await file.text()) as { client_email?: string; private_key?: string };
+                    if (!parsed.client_email || !parsed.private_key) {
+                      toast.error('That JSON has no client_email / private_key — is it a service-account key?');
+                      return;
+                    }
+                    setSa({ client_email: parsed.client_email, private_key: parsed.private_key });
+                    toast.success(`Loaded ${parsed.client_email}`);
+                  } catch {
+                    toast.error('Could not parse that file as JSON');
+                  }
+                }}
+              />
+              {sa && (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                  ✓ Loaded: <code>{sa.client_email}</code>
+                </p>
+              )}
+              <Input
+                value={propertyUrl}
+                onChange={(e) => setPropertyUrl(e.target.value)}
+                placeholder="Property URL (optional, e.g. sc-domain:example.com)"
+                className="max-w-md"
+              />
+              <Button
+                disabled={pending || !sa}
+                onClick={() =>
+                  start(async () => {
+                    const result = await updateGscSettings(siteId, {
+                      serviceAccount: sa,
+                      ...(propertyUrl ? { propertyUrl } : {}),
+                    });
+                    if (result.ok) toast.success('Credentials saved');
+                    else toast.error(result.error?.message ?? 'failed');
+                  })
+                }
+              >
+                Save credentials
+              </Button>
+            </div>
           )}
-        </tbody>
-      </table>
-      {pages.length > 0 &&
-        Object.values(results)[0]?.configured === false && (
-          <p style={{ color: '#b06000', marginTop: 12 }}>
-            Search Console is not configured for this site — add a service account above.
-          </p>
-        )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-5">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Path</TableHead>
+                <TableHead>Locale</TableHead>
+                <TableHead>Verdict</TableHead>
+                <TableHead>Coverage</TableHead>
+                <TableHead>Last crawl</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pages.flatMap((page) =>
+                page.locales
+                  .filter((l) => l.publishedVersionId)
+                  .map((l) => {
+                    const key = `${page.id}:${l.locale}`;
+                    const r = results[key];
+                    return (
+                      <TableRow key={key}>
+                        <TableCell className="font-mono text-xs">{page.path}</TableCell>
+                        <TableCell>{l.locale}</TableCell>
+                        <TableCell>{r?.verdict ? <Badge variant={verdictVariant(r.verdict)}>{r.verdict}</Badge> : '—'}</TableCell>
+                        <TableCell className="text-muted-foreground">{r?.coverageState ?? ''}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {r?.lastCrawlTime ? new Date(r.lastCrawlTime).toLocaleDateString() : ''}
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="outline" disabled={busy === key} onClick={() => inspect(page, l.locale)}>
+                            {busy === key ? '…' : r ? 'Refresh' : 'Inspect'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }),
+              )}
+            </TableBody>
+          </Table>
+          {pages.length > 0 && Object.values(results)[0]?.configured === false && (
+            <p className="mt-3 text-sm text-amber-600 dark:text-amber-400">
+              Search Console is not configured for this site — add a service account above.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { getSession } from '@/lib/session';
-import { Sidebar } from '@/components/admin/sidebar';
+import { AdminShell } from '@/components/admin/admin-shell';
 import { Toaster } from '@/components/ui/sonner';
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -23,12 +23,9 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <html lang={locale} className={theme === 'dark' ? 'dark' : undefined}>
       <body className="antialiased">
         <NextIntlClientProvider messages={messages}>
-          <div className="flex">
-            <Sidebar locale={locale} theme={theme} email={session.email} roles={session.roles} />
-            <main className="min-h-screen flex-1 overflow-auto bg-background">
-              <div className="mx-auto max-w-5xl px-8 py-8">{children}</div>
-            </main>
-          </div>
+          <AdminShell locale={locale} theme={theme} email={session.email} roles={session.roles}>
+            {children}
+          </AdminShell>
           <Toaster />
         </NextIntlClientProvider>
       </body>

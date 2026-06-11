@@ -1,21 +1,19 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { X } from 'lucide-react';
+import { cn } from '@/lib/cn';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 /**
- * Reusable admin input primitives — replace raw JSON / comma-string inputs with
- * proper components. Shared visual language: labeled Field wrapper, chip-based
- * TagInput, validated UrlListInput, LocaleSelect, CheckboxGroup.
+ * Admin input primitives, styled with shadcn/Tailwind tokens. Replace raw JSON /
+ * comma-string inputs with proper components.
  */
-
-const colors = {
-  border: '#d0d0d8',
-  chip: '#eef1f8',
-  chipBad: '#fde8e8',
-  accent: '#1a1a2e',
-  hint: '#888',
-  error: '#c5221f',
-};
 
 export function Field({
   label,
@@ -29,29 +27,21 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <label style={{ display: 'block', marginBottom: 12 }}>
-      <span style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4, color: '#333' }}>
-        {label}
-      </span>
+    <div className="mb-4 space-y-1.5">
+      <Label className="text-foreground">{label}</Label>
       {children}
-      {hint && !error && <span style={{ display: 'block', fontSize: 12, color: colors.hint, marginTop: 3 }}>{hint}</span>}
-      {error && <span style={{ display: 'block', fontSize: 12, color: colors.error, marginTop: 3 }}>{error}</span>}
-    </label>
+      {hint && !error && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </div>
   );
 }
 
-export const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '7px 9px',
-  border: `1px solid ${colors.border}`,
-  borderRadius: 6,
-  fontSize: 14,
-  boxSizing: 'border-box',
-};
+/** Re-export the shadcn Input style for callers that need a bare input. */
+export { Input };
 
 /**
  * Chip editor for a string[]. Type + Enter (or comma) to add; ✕ to remove.
- * Optional per-item validate(): invalid chips render red and aren't added.
+ * Invalid chips (per validate) render in destructive color.
  */
 export function TagInput({
   value,
@@ -74,44 +64,21 @@ export function TagInput({
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 6,
-        padding: 6,
-        border: `1px solid ${colors.border}`,
-        borderRadius: 6,
-        minHeight: 38,
-        alignItems: 'center',
-      }}
-    >
+    <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring">
       {value.map((item) => {
         const ok = !validate || validate(item);
         return (
-          <span
-            key={item}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 4,
-              background: ok ? colors.chip : colors.chipBad,
-              color: ok ? colors.accent : colors.error,
-              borderRadius: 4,
-              padding: '2px 6px',
-              fontSize: 13,
-            }}
-          >
+          <Badge key={item} variant={ok ? 'default' : 'destructive'} className="gap-1">
             {item}
             <button
               type="button"
               onClick={() => onChange(value.filter((v) => v !== item))}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'inherit', padding: 0, lineHeight: 1 }}
+              className="rounded-sm hover:text-foreground"
               aria-label={`Remove ${item}`}
             >
-              ✕
+              <X className="h-3 w-3" />
             </button>
-          </span>
+          </Badge>
         );
       })}
       <input
@@ -133,7 +100,7 @@ export function TagInput({
           }
         }}
         placeholder={value.length ? '' : placeholder}
-        style={{ flex: 1, minWidth: 120, border: 'none', outline: 'none', fontSize: 14, padding: '2px 0' }}
+        className="flex-1 min-w-[120px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
       />
     </div>
   );
@@ -148,7 +115,6 @@ const isUrl = (s: string) => {
   }
 };
 
-/** TagInput preset that validates each entry is an http(s) URL. */
 export function UrlListInput(props: { value: string[]; onChange: (n: string[]) => void; placeholder?: string }) {
   return <TagInput {...props} validate={isUrl} placeholder={props.placeholder ?? 'https://… (Enter to add)'} />;
 }
@@ -162,15 +128,20 @@ export function LocaleSelect({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const options = locales.includes(value) ? locales : [value, ...locales].filter(Boolean);
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle}>
-      {!locales.includes(value) && <option value={value}>{value || '—'}</option>}
-      {locales.map((l) => (
-        <option key={l} value={l}>
-          {l}
-        </option>
-      ))}
-    </select>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="w-full">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((l) => (
+          <SelectItem key={l} value={l}>
+            {l}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -184,14 +155,13 @@ export function CheckboxGroup({
   onChange: (next: string[]) => void;
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div className="flex flex-col gap-2">
       {options.map((opt) => (
-        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, color: '#333' }}>
-          <input
-            type="checkbox"
+        <label key={opt.value} className="flex items-center gap-2 text-sm">
+          <Checkbox
             checked={value.includes(opt.value)}
-            onChange={(e) =>
-              onChange(e.target.checked ? [...value, opt.value] : value.filter((v) => v !== opt.value))
+            onCheckedChange={(checked) =>
+              onChange(checked ? [...value, opt.value] : value.filter((v) => v !== opt.value))
             }
           />
           {opt.label}
@@ -203,8 +173,8 @@ export function CheckboxGroup({
 
 export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 14, color: '#333', cursor: 'pointer' }}>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label className={cn('flex cursor-pointer items-center gap-2.5 text-sm')}>
+      <Switch checked={checked} onCheckedChange={onChange} />
       {label}
     </label>
   );
@@ -217,3 +187,6 @@ export function isValidHostname(s: string): boolean {
 export function isValidLocale(s: string): boolean {
   return /^[a-z]{2}(-[A-Z]{2})?$/.test(s);
 }
+
+/** @deprecated kept for callers still passing inline style — prefer shadcn Input */
+export const inputStyle = {} as const;

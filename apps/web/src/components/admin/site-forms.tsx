@@ -3,71 +3,59 @@
 import { useEffect, useState, useTransition } from 'react';
 import type { SiteDto } from '@cms/contracts';
 import { createSite, updateSite } from '@/app/admin/actions';
-import {
-  Field,
-  TagInput,
-  UrlListInput,
-  LocaleSelect,
-  Toggle,
-  inputStyle,
-  isValidHostname,
-  isValidLocale,
-} from './inputs';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/sonner';
+import { Field, TagInput, UrlListInput, LocaleSelect, Toggle, isValidHostname, isValidLocale } from './inputs';
 
 export function SiteForm() {
   const [slug, setSlug] = useState('');
   const [domains, setDomains] = useState<string[]>([]);
   const [locales, setLocales] = useState<string[]>(['en']);
   const [defaultLocale, setDefaultLocale] = useState('en');
-  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        setError(null);
-        start(async () => {
-          const result = await createSite({ slug, domains, locales, defaultLocale });
-          if (!result.ok) setError(result.error?.message ?? 'failed');
-          else {
-            setSlug('');
-            setDomains([]);
-            setLocales(['en']);
-          }
-        });
-      }}
-      style={{ maxWidth: 560 }}
-    >
-      <Field label="Slug" hint="Internal handle, e.g. my-site">
-        <input style={inputStyle} placeholder="my-site" value={slug} onChange={(e) => setSlug(e.target.value)} required />
-      </Field>
-      <Field label="Domains" hint="Press Enter to add each hostname">
-        <TagInput value={domains} onChange={setDomains} validate={isValidHostname} placeholder="example.com" />
-      </Field>
-      <Field label="Locales" hint="Press Enter to add each locale code (en, de, en-US)">
-        <TagInput value={locales} onChange={setLocales} validate={isValidLocale} placeholder="en" />
-      </Field>
-      <Field label="Default locale">
-        <LocaleSelect locales={locales} value={defaultLocale} onChange={setDefaultLocale} />
-      </Field>
-      <button disabled={pending || !slug || !domains.length || !locales.length} style={btn}>
-        {pending ? 'Creating…' : 'Create site'}
-      </button>
-      {error && <p style={{ color: '#c5221f' }}>{error}</p>}
-    </form>
+    <Card>
+      <CardContent className="pt-5">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            start(async () => {
+              const result = await createSite({ slug, domains, locales, defaultLocale });
+              if (!result.ok) toast.error(result.error?.message ?? 'failed');
+              else {
+                toast.success('Site created');
+                setSlug('');
+                setDomains([]);
+                setLocales(['en']);
+              }
+            });
+          }}
+        >
+          <Field label="Slug" hint="Internal handle, e.g. my-site">
+            <Input placeholder="my-site" value={slug} onChange={(e) => setSlug(e.target.value)} required />
+          </Field>
+          <Field label="Domains" hint="Press Enter to add each hostname">
+            <TagInput value={domains} onChange={setDomains} validate={isValidHostname} placeholder="example.com" />
+          </Field>
+          <Field label="Locales" hint="Press Enter to add each locale code (en, de, en-US)">
+            <TagInput value={locales} onChange={setLocales} validate={isValidLocale} placeholder="en" />
+          </Field>
+          <Field label="Default locale">
+            <LocaleSelect locales={locales} value={defaultLocale} onChange={setDefaultLocale} />
+          </Field>
+          <Button type="submit" disabled={pending || !slug || !domains.length || !locales.length}>
+            {pending ? 'Creating…' : 'Create site'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
-
-const btn: React.CSSProperties = {
-  padding: '8px 18px',
-  background: '#1a1a2e',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 6,
-  fontSize: 14,
-  cursor: 'pointer',
-};
 
 interface SiteSettings {
   seo?: { blockAiTraining?: boolean; googleVerification?: string; bingVerification?: string };
@@ -86,7 +74,7 @@ export function SiteEditor({ site }: { site: SiteDto & { settings?: SiteSettings
   const [orgName, setOrgName] = useState(site.settings?.org?.name ?? '');
   const [orgLogo, setOrgLogo] = useState(site.settings?.org?.logoUrl ?? '');
   const [orgSameAs, setOrgSameAs] = useState<string[]>(site.settings?.org?.sameAs ?? []);
-  const [message, setMessage] = useState<string | null>(null);
+  const [seoOpen, setSeoOpen] = useState(false);
   const [pending, start] = useTransition();
 
   function save() {
@@ -103,14 +91,15 @@ export function SiteEditor({ site }: { site: SiteDto & { settings?: SiteSettings
         },
         org: orgName ? { name: orgName, ...(orgLogo ? { logoUrl: orgLogo } : {}), sameAs: orgSameAs } : undefined,
       });
-      setMessage(result.ok ? 'Saved' : (result.error?.message ?? 'failed'));
+      if (result.ok) toast.success('Saved');
+      else toast.error(result.error?.message ?? 'failed');
     });
   }
 
   return (
-    <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 16, marginBottom: 16, maxWidth: 640 }}>
-      <strong style={{ fontSize: 16 }}>{site.slug}</strong>
-      <div style={{ marginTop: 12 }}>
+    <Card className="mb-5">
+      <CardContent className="pt-5">
+        <h3 className="mb-4 text-base font-semibold">{site.slug}</h3>
         <Field label="Domains">
           <TagInput value={domains} onChange={setDomains} validate={isValidHostname} placeholder="example.com" />
         </Field>
@@ -120,7 +109,7 @@ export function SiteEditor({ site }: { site: SiteDto & { settings?: SiteSettings
         <Field label="Default locale">
           <LocaleSelect locales={locales} value={defaultLocale} onChange={setDefaultLocale} />
         </Field>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0' }}>
+        <div className="my-3 flex flex-col gap-2.5">
           <Toggle checked={blockAi} onChange={setBlockAi} label="Block AI-training bots in robots.txt" />
           <Toggle
             checked={localeFallback}
@@ -128,33 +117,42 @@ export function SiteEditor({ site }: { site: SiteDto & { settings?: SiteSettings
             label="Locale fallback (untranslated paths → default locale)"
           />
         </div>
-      </div>
-      <details style={{ margin: '8px 0' }}>
-        <summary style={{ cursor: 'pointer', color: '#555', fontSize: 13, marginBottom: 8 }}>SEO & Organization</summary>
-        <Field label="Google Search Console verification" hint="The google-site-verification token">
-          <input style={inputStyle} value={googleVerify} onChange={(e) => setGoogleVerify(e.target.value)} placeholder="token" />
-        </Field>
-        <Field label="Bing verification" hint="The msvalidate.01 token">
-          <input style={inputStyle} value={bingVerify} onChange={(e) => setBingVerify(e.target.value)} placeholder="token" />
-        </Field>
-        <Field label="Organization name" hint="Used in Organization JSON-LD and OG site name">
-          <input style={inputStyle} value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Acme Inc" />
-        </Field>
-        <Field label="Logo URL">
-          <input style={inputStyle} value={orgLogo} onChange={(e) => setOrgLogo(e.target.value)} placeholder="https://…/logo.png" />
-        </Field>
-        <Field label="Social profiles (sameAs)" hint="Press Enter to add each profile URL">
-          <UrlListInput value={orgSameAs} onChange={setOrgSameAs} />
-        </Field>
-      </details>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button disabled={pending} style={btn} onClick={save}>
-          {pending ? 'Saving…' : 'Save'}
+
+        <button
+          type="button"
+          onClick={() => setSeoOpen((v) => !v)}
+          className="mb-3 text-sm text-muted-foreground hover:text-foreground"
+        >
+          {seoOpen ? '▾' : '▸'} SEO & Organization
         </button>
-        {message && <span style={{ color: message === 'Saved' ? '#137333' : '#c5221f' }}>{message}</span>}
-      </div>
-      <MembersEditor siteId={site.id} />
-    </div>
+        {seoOpen && (
+          <div className="mb-3 rounded-lg border bg-muted/30 p-4">
+            <Field label="Google Search Console verification" hint="The google-site-verification token">
+              <Input value={googleVerify} onChange={(e) => setGoogleVerify(e.target.value)} placeholder="token" />
+            </Field>
+            <Field label="Bing verification" hint="The msvalidate.01 token">
+              <Input value={bingVerify} onChange={(e) => setBingVerify(e.target.value)} placeholder="token" />
+            </Field>
+            <Field label="Organization name" hint="Used in Organization JSON-LD and OG site name">
+              <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder="Acme Inc" />
+            </Field>
+            <Field label="Logo URL">
+              <Input value={orgLogo} onChange={(e) => setOrgLogo(e.target.value)} placeholder="https://…/logo.png" />
+            </Field>
+            <Field label="Social profiles (sameAs)" hint="Press Enter to add each profile URL">
+              <UrlListInput value={orgSameAs} onChange={setOrgSameAs} />
+            </Field>
+          </div>
+        )}
+
+        <Button onClick={save} disabled={pending}>
+          {pending ? 'Saving…' : 'Save'}
+        </Button>
+
+        <Separator className="my-5" />
+        <MembersEditor siteId={site.id} />
+      </CardContent>
+    </Card>
   );
 }
 
@@ -162,7 +160,6 @@ export function MembersEditor({ siteId }: { siteId: string }) {
   const [members, setMembers] = useState<Array<{ id: string; email: string; role: string }>>([]);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'editor' | 'viewer'>('editor');
-  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
   async function refresh() {
@@ -177,17 +174,19 @@ export function MembersEditor({ siteId }: { siteId: string }) {
   }, [siteId]);
 
   return (
-    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed #ddd' }}>
-      <strong style={{ fontSize: 13 }}>Members</strong>
-      <p style={{ fontSize: 12, color: '#777', margin: '2px 0 6px' }}>
+    <div>
+      <h4 className="text-sm font-semibold">Members</h4>
+      <p className="mb-2 mt-0.5 text-xs text-muted-foreground">
         Empty list = open to all editors. Once configured, only members (and admins) can touch this site.
       </p>
-      {members.length === 0 && <p style={{ fontSize: 13, color: '#aaa', margin: '0 0 6px' }}>No members yet — site is open.</p>}
+      {members.length === 0 && <p className="mb-2 text-sm text-muted-foreground">No members yet — site is open.</p>}
       {members.map((m) => (
-        <div key={m.id} style={{ display: 'flex', gap: 8, fontSize: 13, marginBottom: 4, alignItems: 'center' }}>
-          <span style={{ flex: 1 }}>{m.email}</span>
-          <span style={{ color: '#777' }}>{m.role}</span>
-          <button
+        <div key={m.id} className="mb-1 flex items-center gap-2 text-sm">
+          <span className="flex-1">{m.email}</span>
+          <span className="text-muted-foreground">{m.role}</span>
+          <Button
+            variant="ghost"
+            size="sm"
             disabled={pending}
             onClick={() =>
               start(async () => {
@@ -198,28 +197,32 @@ export function MembersEditor({ siteId }: { siteId: string }) {
             }
           >
             Remove
-          </button>
+          </Button>
         </div>
       ))}
-      <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-        <input
+      <div className="mt-2 flex gap-2">
+        <Input
           placeholder="user@example.com (must have logged in once)"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ flex: 1, padding: 6, fontSize: 13, border: '1px solid #d0d0d8', borderRadius: 6 }}
+          className="flex-1"
         />
-        <select value={role} onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')} style={{ padding: 6, borderRadius: 6 }}>
-          <option value="editor">editor</option>
-          <option value="viewer">viewer</option>
-        </select>
-        <button
+        <Select value={role} onValueChange={(v) => setRole(v as 'editor' | 'viewer')}>
+          <SelectTrigger className="w-28">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="editor">editor</SelectItem>
+            <SelectItem value="viewer">viewer</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
           disabled={pending || !email}
           onClick={() =>
             start(async () => {
-              setError(null);
               const { addMember } = await import('@/app/admin/actions');
               const result = await addMember(siteId, email, role);
-              if (!result.ok) setError(result.error?.message ?? 'failed');
+              if (!result.ok) toast.error(result.error?.message ?? 'failed');
               else {
                 setEmail('');
                 await refresh();
@@ -228,9 +231,8 @@ export function MembersEditor({ siteId }: { siteId: string }) {
           }
         >
           Add
-        </button>
+        </Button>
       </div>
-      {error && <p style={{ color: '#c5221f', fontSize: 13 }}>{error}</p>}
     </div>
   );
 }

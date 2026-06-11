@@ -6,25 +6,21 @@ import type { LocaleSummary, PageSummary, SiteDto } from '@cms/contracts';
 import { useTranslations } from 'next-intl';
 import { bulkPages } from '@/app/admin/actions';
 import { AddLocaleButton, SlugOverrideButton, PageRowActions } from './page-forms';
+import { cn } from '@/lib/cn';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/sonner';
 
 function LocaleChip({ summary }: { summary: LocaleSummary }) {
   const published = summary.publishedVersionId !== null;
   return (
-    <Link
-      href={`/admin/edit/${summary.pageLocaleId}`}
-      style={{
-        display: 'inline-block',
-        padding: '2px 8px',
-        marginRight: 4,
-        borderRadius: 12,
-        fontSize: 12,
-        textDecoration: 'none',
-        background: published ? '#e6f4ea' : '#fef7e0',
-        color: published ? '#137333' : '#b06000',
-        border: '1px solid ' + (published ? '#b7dfc2' : '#f3d19c'),
-      }}
-    >
-      {summary.locale} v{summary.latestVersionNo} {published ? '●' : '○'}
+    <Link href={`/admin/edit/${summary.pageLocaleId}`} className="mr-1 inline-block">
+      <Badge variant={published ? 'success' : 'outline'} className={cn(!published && 'text-amber-600 dark:text-amber-400')}>
+        {summary.locale} v{summary.latestVersionNo} {published ? '●' : '○'}
+      </Badge>
     </Link>
   );
 }
@@ -32,7 +28,6 @@ function LocaleChip({ summary }: { summary: LocaleSummary }) {
 export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addLocale, setAddLocale] = useState(site.locales[0] ?? 'en');
-  const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const t = useTranslations('pages');
 
@@ -45,122 +40,117 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
     });
   const allSelected = pages.length > 0 && selected.size === pages.length;
 
-  // publish/unpublish/delete operate on the default-locale page-locale id;
-  // delete/add-locale on the page id
   function run(action: 'publish' | 'unpublish' | 'delete' | 'add-locale') {
     start(async () => {
-      setMessage(null);
       const pageIds = [...selected];
       let ids = pageIds;
       if (action === 'publish' || action === 'unpublish') {
-        // map page → its default-locale page-locale id (publish latest)
-        ids = pages
-          .filter((p) => selected.has(p.id))
-          .flatMap((p) => p.locales.map((l) => l.pageLocaleId));
+        ids = pages.filter((p) => selected.has(p.id)).flatMap((p) => p.locales.map((l) => l.pageLocaleId));
       }
       const result = await bulkPages(site.id, action, ids, addLocale);
       if (result.ok && result.data) {
         const fail = result.data.results.filter((r) => !r.ok);
-        setMessage(fail.length ? `${fail.length} failed` : `Done (${result.data.results.length})`);
+        if (fail.length) toast.error(`${fail.length} failed`);
+        else toast.success(`Done (${result.data.results.length})`);
         setSelected(new Set());
       } else {
-        setMessage(result.error?.message ?? 'failed');
+        toast.error(result.error?.message ?? 'failed');
       }
     });
   }
 
   return (
     <>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr style={{ textAlign: 'left', color: '#666', fontSize: 13 }}>
-            <th style={{ padding: 8, width: 24 }}>
-              <input
-                type="checkbox"
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8">
+              <Checkbox
                 checked={allSelected}
-                onChange={(e) => setSelected(e.target.checked ? new Set(pages.map((p) => p.id)) : new Set())}
+                onCheckedChange={(c) => setSelected(c ? new Set(pages.map((p) => p.id)) : new Set())}
               />
-            </th>
-            <th style={{ padding: 8 }}>{t('path')}</th>
-            <th style={{ padding: 8 }}>{t('name')}</th>
-            <th style={{ padding: 8 }}>{t('kind')}</th>
-            <th style={{ padding: 8 }}>{t('locales')}</th>
-            <th style={{ padding: 8 }}>{t('actions')}</th>
-          </tr>
-        </thead>
-        <tbody>
+            </TableHead>
+            <TableHead>{t('path')}</TableHead>
+            <TableHead>{t('name')}</TableHead>
+            <TableHead>{t('kind')}</TableHead>
+            <TableHead>{t('locales')}</TableHead>
+            <TableHead>{t('actions')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {pages.length === 0 && (
-            <tr>
-              <td colSpan={6} style={{ padding: 16, color: '#aaa', textAlign: 'center' }}>
+            <TableRow>
+              <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
                 No pages yet — create one below.
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
           {pages.map((page) => (
-            <tr key={page.id} style={{ borderTop: '1px solid #eee', background: selected.has(page.id) ? '#f0f4ff' : undefined }}>
-              <td style={{ padding: 8 }}>
-                <input type="checkbox" checked={selected.has(page.id)} onChange={() => toggle(page.id)} />
-              </td>
-              <td style={{ padding: 8, fontFamily: 'monospace' }}>{page.path}</td>
-              <td style={{ padding: 8 }}>{page.name}</td>
-              <td style={{ padding: 8, color: '#777' }}>{page.kind}</td>
-              <td style={{ padding: 8 }}>
-                {page.locales.map((l) => (
-                  <span key={l.pageLocaleId} style={{ whiteSpace: 'nowrap' }}>
-                    <LocaleChip summary={l} />
-                    <SlugOverrideButton pageLocaleId={l.pageLocaleId} locale={l.locale} current={l.slugOverride} />
-                  </span>
-                ))}
-                {site.locales
-                  .filter((loc) => !page.locales.some((pl) => pl.locale === loc))
-                  .map((loc) => (
-                    <AddLocaleButton key={loc} pageId={page.id} locale={loc} />
+            <TableRow key={page.id} data-state={selected.has(page.id) ? 'selected' : undefined}>
+              <TableCell>
+                <Checkbox checked={selected.has(page.id)} onCheckedChange={() => toggle(page.id)} />
+              </TableCell>
+              <TableCell className="font-mono text-xs">{page.path}</TableCell>
+              <TableCell>{page.name}</TableCell>
+              <TableCell className="text-muted-foreground">{page.kind}</TableCell>
+              <TableCell>
+                <div className="flex flex-wrap items-center gap-1">
+                  {page.locales.map((l) => (
+                    <span key={l.pageLocaleId} className="inline-flex items-center whitespace-nowrap">
+                      <LocaleChip summary={l} />
+                      <SlugOverrideButton pageLocaleId={l.pageLocaleId} locale={l.locale} current={l.slugOverride} />
+                    </span>
                   ))}
-              </td>
-              <td style={{ padding: 8 }}>
+                  {site.locales
+                    .filter((loc) => !page.locales.some((pl) => pl.locale === loc))
+                    .map((loc) => (
+                      <AddLocaleButton key={loc} pageId={page.id} locale={loc} />
+                    ))}
+                </div>
+              </TableCell>
+              <TableCell>
                 <PageRowActions pageId={page.id} path={page.path} />
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {selected.size > 0 && (
-        <div
-          style={{
-            position: 'sticky',
-            bottom: 0,
-            background: '#1a1a2e',
-            color: '#fff',
-            padding: '10px 16px',
-            borderRadius: 8,
-            marginTop: 12,
-            display: 'flex',
-            gap: 10,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-          }}
-        >
-          <strong>{t('selected', { count: selected.size })}</strong>
-          <button disabled={pending} onClick={() => run('publish')}>{t('publishLatest')}</button>
-          <button disabled={pending} onClick={() => run('unpublish')}>{t('unpublish')}</button>
-          <span>
-            <select value={addLocale} onChange={(e) => setAddLocale(e.target.value)}>
-              {site.locales.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>{' '}
-            <button disabled={pending} onClick={() => run('add-locale')}>{t('addLocale')}</button>
-          </span>
-          <button
+        <div className="sticky bottom-4 mt-3 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 shadow-lg">
+          <strong className="text-sm">{t('selected', { count: selected.size })}</strong>
+          <Button size="sm" disabled={pending} onClick={() => run('publish')}>
+            {t('publishLatest')}
+          </Button>
+          <Button size="sm" variant="secondary" disabled={pending} onClick={() => run('unpublish')}>
+            {t('unpublish')}
+          </Button>
+          <div className="flex items-center gap-1">
+            <Select value={addLocale} onValueChange={setAddLocale}>
+              <SelectTrigger className="h-8 w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {site.locales.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {l}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="secondary" disabled={pending} onClick={() => run('add-locale')}>
+              {t('addLocale')}
+            </Button>
+          </div>
+          <Button
+            size="sm"
+            variant="destructive"
             disabled={pending}
-            style={{ color: '#ff9a9a' }}
             onClick={() => {
               if (window.confirm(t('deleteConfirm', { count: selected.size }))) run('delete');
             }}
           >
             {t('delete')}
-          </button>
-          {message && <span>{message}</span>}
+          </Button>
         </div>
       )}
     </>
