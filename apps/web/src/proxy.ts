@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createDb, publishedPages, redirects, sites, type Db } from '@cms/db';
+import { createDb, authors, publishedPages, redirects, sites, type Db } from '@cms/db';
 
 /**
  * Host → site resolution and fast-404 on the hot path.
@@ -98,6 +98,11 @@ const redirectMap = swrCell(async () => {
   return new Map(rows.map((r) => [`${r.siteId}:${r.fromPath}`, { to: r.toPath, status: r.status }]));
 }, PATHS_TTL_MS);
 
+const authorSlugs = swrCell(async () => {
+  const rows = await db().select({ siteId: authors.siteId, slug: authors.slug }).from(authors);
+  return new Set(rows.map((r) => `${r.siteId}:${r.slug}`));
+}, PATHS_TTL_MS);
+
 const publishedPaths = swrCell(async () => {
   const rows = await db()
     .select({
@@ -161,11 +166,21 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
     return new NextResponse('Not found', { status: 404 });
   }
 
-  // author archive pages are not in published_pages — let them through to the rewrite
+  // author archive pages are not in published_pages — gate them against the
+  // cached author-slug set so unknown slugs fast-404 at the edge too
   const isAuthorPage = segments[2] === 'author' && segments.length === 4;
+  if (isAuthorPage) {
+    const slugs = await authorSlugs();
+    if (slugs && !slugs.has(`${site.id}:${segments[3]}`)) {
+      return new NextResponse('Not found', { status: 404 });
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = `/s/${site.id}${pathname}`;
+    return NextResponse.rewrite(url);
+  }
 
   // fast-404: refuse unpublished paths before rendering (fail open on null)
-  const paths = isAuthorPage ? null : await publishedPaths();
+  const paths = await publishedPaths();
   if (paths) {
     const pagePath = '/' + segments.slice(2).join('/');
     const normalized = pagePath === '/' ? '/' : pagePath.replace(/\/$/, '');

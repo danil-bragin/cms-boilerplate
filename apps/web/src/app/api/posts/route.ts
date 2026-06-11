@@ -12,7 +12,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!site) return NextResponse.json({ posts: [], totalPages: 1, page: 1 }, { status: 404 });
 
   const sp = req.nextUrl.searchParams;
-  const locale = sp.get('locale') || site.defaultLocale;
+  const requested = sp.get('locale') || site.defaultLocale;
+  const locale = site.locales.includes(requested) ? requested : site.defaultLocale;
   const page = Math.max(1, Math.min(1000, Number(sp.get('page') ?? '1') || 1));
   const perPage = Math.max(1, Math.min(50, Number(sp.get('perPage') ?? '10') || 10));
 

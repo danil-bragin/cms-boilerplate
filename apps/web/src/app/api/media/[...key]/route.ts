@@ -19,11 +19,16 @@ export async function GET(
   if (s3Key.includes('..')) return NextResponse.json({ error: 'bad key' }, { status: 400 });
 
   const url = new URL(req.url);
-  const width = Number(url.searchParams.get('w') ?? 0) || undefined;
-  const height = Number(url.searchParams.get('h') ?? 0) || undefined;
+  const clamp = (n: number, lo: number, hi: number, dflt: number) =>
+    Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
+  const width = clamp(Number(url.searchParams.get('w')), 1, 4096, 0) || undefined;
+  const height = clamp(Number(url.searchParams.get('h')), 1, 4096, 0) || undefined;
   const fx = url.searchParams.get('fx');
   const fy = url.searchParams.get('fy');
-  const crop = fx || fy ? { focalX: Number(fx ?? 0.5), focalY: Number(fy ?? 0.5) } : undefined;
+  const crop =
+    fx || fy
+      ? { focalX: clamp(Number(fx), 0, 1, 0.5), focalY: clamp(Number(fy), 0, 1, 0.5) }
+      : undefined;
 
   const target = imageUrl(s3Key, { width, height, crop });
   if (!target) return NextResponse.json({ error: 'images not configured' }, { status: 503 });

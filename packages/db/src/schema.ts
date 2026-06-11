@@ -63,12 +63,14 @@ export const pages = pgTable(
     firstPublishedAt: timestamp('first_published_at', { withTimezone: true }),
     /** link to an authors row for E-E-A-T (author text kept for back-compat) */
     authorId: uuid('author_id'),
+    // (FK + index added below via AfterInsert — defined after authors table)
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex('pages_site_path_uq').on(t.siteId, t.path),
     index('pages_kind_idx').on(t.siteId, t.kind),
     index('pages_posts_sort_idx').on(t.siteId, t.kind, t.firstPublishedAt.desc()),
+    index('pages_author_idx').on(t.authorId),
   ],
 );
 

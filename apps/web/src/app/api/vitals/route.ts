@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { recordVital, type VitalName } from '@/lib/vitals-metrics';
+import { resolveSiteByHost } from '@/lib/site-resolver';
 
 /**
  * RUM beacon sink. Public by design (real users post here) — hardened by
@@ -43,7 +44,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   if (!parsed.success) return new NextResponse(null, { status: 400 });
 
-  const host = (req.headers.get('host') ?? 'unknown').split(':')[0]!;
+  // bound host-label cardinality: only known site hosts, else '_other'
+  const rawHost = (req.headers.get('host') ?? '').split(':')[0]!;
+  const site = await resolveSiteByHost(rawHost);
+  const host = site ? rawHost : '_other';
   for (const metric of parsed.data.metrics) {
     recordVital(metric.name as VitalName, metric.value, {
       host,
