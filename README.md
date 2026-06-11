@@ -205,6 +205,17 @@ it is the peer of `@trieb.work/nextjs-turbo-redis-cache`; node-redis v5/v6
 change the `hScan` cursor API and silently kill the cache handler (pages
 permanently MISS). Do not bump it independently of the handler.
 
+## RUM — field Core Web Vitals
+
+Google ranks on **field** data (CrUX), not Lighthouse lab runs. Every public
+page ships a ~2KB lazy `web-vitals` reporter (prerender/bfcache-correct —
+required because Speculation Rules are on): LCP/INP/CLS/TTFB/FCP beacons to
+`/api/vitals` (sampled via `NEXT_PUBLIC_VITALS_SAMPLE`, zero PII), recorded as
+OTel histograms with CWV-aligned buckets, exported through the existing OTLP
+pipeline. Grafana shows p75 per host against Google's thresholds plus a
+worst-pages-by-LCP table. Path label is cardinality-capped (500/replica →
+`_other`).
+
 ## Abuse resistance on the read path
 
 - Unknown hosts, unknown locales and **unpublished paths are refused in the

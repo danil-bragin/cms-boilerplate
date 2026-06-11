@@ -39,3 +39,4 @@ set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318`, open http://localhost:1
 | `CDN_PROVIDER` | api, worker | `cloudflare` \| `cloudfront` \| unset. Enables edge purge on publish. |
 | `CLOUDFLARE_ZONE_ID` / `CLOUDFLARE_API_TOKEN` | worker | Cloudflare purge-by-URL credentials. |
 | `CLOUDFRONT_DISTRIBUTION_ID` | worker | CloudFront invalidation target (uses ambient AWS credentials/IRSA). |
+| `NEXT_PUBLIC_VITALS_SAMPLE` | web (client) | RUM sampling rate 0..1 (default 1). Beacons land at `/api/vitals` → OTel histograms `web_vitals_*`. |

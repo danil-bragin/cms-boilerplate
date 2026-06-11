@@ -3,12 +3,20 @@
   "uid": "cms-overview",
   "schemaVersion": 39,
   "refresh": "30s",
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "panels": [
     {
       "title": "API request rate (rps)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "expr": "sum by (http_route) (rate(http_server_duration_milliseconds_count{service_name=\"cms-api\"}[5m]))",
@@ -19,7 +27,12 @@
     {
       "title": "API p99 latency (ms)",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.99, sum by (le, http_route) (rate(http_server_duration_milliseconds_bucket{service_name=\"cms-api\"}[5m])))",
@@ -30,7 +43,12 @@
     {
       "title": "API 5xx rate",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "expr": "sum (rate(http_server_duration_milliseconds_count{service_name=\"cms-api\", http_status_code=~\"5..\"}[5m]))",
@@ -41,11 +59,160 @@
     {
       "title": "DB query rate by operation (worker+api)",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "expr": "sum by (db_operation) (rate(db_client_operation_duration_seconds_count[5m]))",
           "legendFormat": "{{db_operation}}"
+        }
+      ]
+    },
+    {
+      "title": "Field LCP p75 (ms) \u2014 good \u22642500",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2500
+              },
+              {
+                "color": "red",
+                "value": 4000
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.75, sum by (le, host) (rate(web_vitals_lcp_milliseconds_bucket[15m])))",
+          "legendFormat": "{{host}}"
+        }
+      ]
+    },
+    {
+      "title": "Field INP p75 (ms) \u2014 good \u2264200",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 8,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 200
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.75, sum by (le, host) (rate(web_vitals_inp_milliseconds_bucket[15m])))",
+          "legendFormat": "{{host}}"
+        }
+      ]
+    },
+    {
+      "title": "Field CLS p75 (\u00d71000) \u2014 good \u2264100",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 16,
+        "y": 16,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 250
+              }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.75, sum by (le, host) (rate(web_vitals_cls_x1000_bucket[15m])))",
+          "legendFormat": "{{host}}"
+        }
+      ]
+    },
+    {
+      "title": "Worst pages by field LCP p75 (15m)",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.75, sum by (le, path) (rate(web_vitals_lcp_milliseconds_bucket[15m]))))",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "title": "RUM samples/min by device",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (device) (rate(web_vitals_lcp_milliseconds_count[5m])) * 60",
+          "legendFormat": "{{device}}"
         }
       ]
     }

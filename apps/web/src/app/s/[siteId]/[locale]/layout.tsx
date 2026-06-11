@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { VitalsReporter } from '@/components/vitals-reporter';
 
 /**
  * Root layout for public pages (no app/layout.tsx above — this owns <html>).
@@ -60,7 +61,10 @@ export default async function PublicLayout({
         <style dangerouslySetInnerHTML={{ __html: globalCss }} />
         <script type="speculationrules" dangerouslySetInnerHTML={{ __html: speculationRules }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <VitalsReporter />
+      </body>
     </html>
   );
 }
