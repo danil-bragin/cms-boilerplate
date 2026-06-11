@@ -14,11 +14,19 @@ export interface PostItem {
 }
 
 export type PostsResolver = (siteId: string, locale: string, limit: number) => Promise<PostItem[]>;
+export type PostsPageResolver = (
+  siteId: string,
+  locale: string,
+  page: number,
+  perPage: number,
+) => Promise<{ posts: PostItem[]; totalPages: number }>;
 
 let resolver: PostsResolver | undefined;
+let pageResolver: PostsPageResolver | undefined;
 
-export function configurePosts(next: PostsResolver): void {
+export function configurePosts(next: PostsResolver, paged?: PostsPageResolver): void {
   resolver = next;
+  pageResolver = paged;
 }
 
 export async function PostListServer({
@@ -26,12 +34,25 @@ export async function PostListServer({
   locale,
   limit,
   heading,
+  paginated,
 }: {
   siteId: string;
   locale: string;
   limit: number;
   heading: string;
+  paginated?: boolean;
 }) {
+  if (paginated && pageResolver) {
+    const { posts, totalPages } = await pageResolver(siteId, locale, 1, limit);
+    const { PostPager } = await import('./components/post-pager.js');
+    return (
+      <section>
+        {heading && <h2>{heading}</h2>}
+        {posts.length === 0 && <p style={{ color: '#888' }}>No posts yet.</p>}
+        <PostPager initial={posts} totalPages={totalPages} perPage={limit} />
+      </section>
+    );
+  }
   const posts = resolver ? await resolver(siteId, locale, limit) : [];
   return (
     <section>

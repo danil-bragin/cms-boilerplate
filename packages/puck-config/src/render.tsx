@@ -98,7 +98,7 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
       render: ({ placeholder }) => <SearchBox placeholder={placeholder || 'Search…'} />,
     },
     PostList: {
-      render: ({ heading, limit, puck }) => {
+      render: ({ heading, limit, paginated, puck }) => {
         // editor canvas runs client-side where the resolver isn't available
         if (typeof window !== 'undefined') {
           return (
@@ -110,7 +110,13 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
         const meta = (puck?.metadata ?? {}) as { siteId?: string; locale?: string };
         if (!meta.siteId || !meta.locale) return <></>;
         return (
-          <PostListServer siteId={meta.siteId} locale={meta.locale} limit={limit} heading={heading} />
+          <PostListServer
+            siteId={meta.siteId}
+            locale={meta.locale}
+            limit={limit}
+            heading={heading}
+            paginated={paginated}
+          />
         );
       },
     },

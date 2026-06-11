@@ -150,9 +150,17 @@ export function createEditorConfig(
         ...renderConfig.components.PostList,
         fields: {
           heading: { type: 'text', label: 'Heading' },
-          limit: { type: 'number', label: 'Posts to show', min: 1, max: 50 },
+          limit: { type: 'number', label: 'Posts per page', min: 1, max: 50 },
+          paginated: {
+            type: 'radio',
+            label: 'Pagination',
+            options: [
+              { label: 'Off', value: false },
+              { label: 'On', value: true },
+            ],
+          },
         },
-        defaultProps: { heading: 'Latest posts', limit: 10 },
+        defaultProps: { heading: 'Latest posts', limit: 10, paginated: false },
       },
       Button: {
         ...renderConfig.components.Button,

@@ -50,6 +50,7 @@ export interface SearchProps {
 export interface PostListProps {
   heading: string;
   limit: number;
+  paginated: boolean;
 }
 
 export interface ButtonProps {
