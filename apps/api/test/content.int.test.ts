@@ -150,4 +150,56 @@ describe('content api', () => {
         .expect(409);
     });
   });
+
+  describe('bulk operations', () => {
+    it('bulk publishes and deletes multiple pages with per-item results', async () => {
+      const created = await Promise.all(
+        ['/bulk-a', '/bulk-b', '/bulk-c'].map((path) =>
+          http().post(`/sites/${stack.siteId}/pages`).set(AUTH).send({ path, name: path }).expect(201),
+        ),
+      );
+      const pageIds = created.map((r) => r.body.id);
+      const localeIds = created.map((r) => r.body.locales[0].pageLocaleId);
+      // draft content so publish has something
+      for (const lid of localeIds) {
+        await http().put(`/page-locales/${lid}/draft`).set(AUTH).send({ puckData: puck('x') }).expect(200);
+      }
+
+      const pub = await http()
+        .post(`/sites/${stack.siteId}/pages/bulk`)
+        .set(AUTH)
+        .send({ action: 'publish', ids: localeIds })
+        .expect(201);
+      expect(pub.body.results).toHaveLength(3);
+      expect(pub.body.results.every((r: { ok: boolean }) => r.ok)).toBe(true);
+
+      const del = await http()
+        .post(`/sites/${stack.siteId}/pages/bulk`)
+        .set(AUTH)
+        .send({ action: 'delete', ids: pageIds })
+        .expect(201);
+      expect(del.body.results.every((r: { ok: boolean }) => r.ok)).toBe(true);
+
+      const remaining = await http().get(`/sites/${stack.siteId}/pages`).set(AUTH).expect(200);
+      expect(remaining.body.some((p: { path: string }) => p.path.startsWith('/bulk-'))).toBe(false);
+    });
+
+    it('bulk add-locale reports per-item failures without aborting the batch', async () => {
+      const page = await http().post(`/sites/${stack.siteId}/pages`).set(AUTH).send({ path: '/bulk-loc', name: 'L' }).expect(201);
+      const res = await http()
+        .post(`/sites/${stack.siteId}/pages/bulk`)
+        .set(AUTH)
+        .send({ action: 'add-locale', ids: [page.body.id], locale: 'de' })
+        .expect(201);
+      expect(res.body.results[0].ok).toBe(true);
+      // adding the same locale again → that item fails, batch still 201
+      const again = await http()
+        .post(`/sites/${stack.siteId}/pages/bulk`)
+        .set(AUTH)
+        .send({ action: 'add-locale', ids: [page.body.id], locale: 'de' })
+        .expect(201);
+      expect(again.body.results[0].ok).toBe(false);
+    });
+  });
+
 });

@@ -113,6 +113,18 @@ export const authorDto = upsertAuthorBody.extend({ id: z.uuid(), siteId: z.uuid(
 export type UpsertAuthorBody = z.infer<typeof upsertAuthorBody>;
 export type AuthorDto = z.infer<typeof authorDto>;
 
+export const bulkActionBody = z.object({
+  action: z.enum(['publish', 'unpublish', 'delete', 'add-locale']),
+  // pageLocaleIds for publish/unpublish; pageIds for delete/add-locale
+  ids: z.array(z.uuid()).min(1).max(200),
+  locale: z.string().optional(),
+});
+export const bulkResult = z.object({
+  results: z.array(z.object({ id: z.uuid(), ok: z.boolean(), error: z.string().optional() })),
+});
+export type BulkActionBody = z.infer<typeof bulkActionBody>;
+export type BulkResult = z.infer<typeof bulkResult>;
+
 export const addMemberBody = z.object({
   email: z.email(),
   role: z.enum(['editor', 'viewer']).default('editor'),

@@ -1,15 +1,17 @@
 import { Body, Controller, Delete, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
 import { createZodDto } from 'nestjs-zod';
-import { addLocaleBody, createPageBody, saveDraftBody, updatePageBody } from '@cms/contracts';
+import { addLocaleBody, bulkActionBody, createPageBody, saveDraftBody, updatePageBody } from '@cms/contracts';
 import type { AuthContext } from '@cms/auth';
 import { Roles } from '../auth/auth.guard.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { PagesService } from './pages.service.js';
 import { VersionsService } from './versions.service.js';
+import { BulkService } from './bulk.service.js';
 import { SiteAccessService } from '../auth/site-access.service.js';
 import { REVALIDATE_CLIENT, type RevalidateClient } from '../publish/revalidate.client.js';
 
 class CreatePageDto extends createZodDto(createPageBody) {}
+class BulkActionDto extends createZodDto(bulkActionBody) {}
 class AddLocaleDto extends createZodDto(addLocaleBody) {}
 class SaveDraftDto extends createZodDto(saveDraftBody) {}
 class UpdatePageDto extends createZodDto(updatePageBody) {}
@@ -20,6 +22,7 @@ export class SitesController {
   constructor(
     @Inject(PagesService) private readonly pagesService: PagesService,
     @Inject(SiteAccessService) private readonly access: SiteAccessService,
+    @Inject(BulkService) private readonly bulkService: BulkService,
   ) {}
 
   @Get()
@@ -42,6 +45,17 @@ export class SitesController {
   ) {
     await this.access.assertSiteAccess(user, siteId);
     return this.pagesService.createPage(siteId, body.path, body.name, user.sub, body.kind, body.author, body.authorId);
+  }
+
+  @Post(':siteId/pages/bulk')
+  @Roles('cms-editor')
+  async bulk(
+    @Param('siteId', ParseUUIDPipe) siteId: string,
+    @Body() body: BulkActionDto,
+    @CurrentUser() user: AuthContext,
+  ) {
+    await this.access.assertSiteAccess(user, siteId);
+    return { results: await this.bulkService.run(user, body.action, body.ids, body.locale) };
   }
 }
 

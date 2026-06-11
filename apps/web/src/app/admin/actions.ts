@@ -360,3 +360,21 @@ export async function updateGscSettings(siteId: string, gsc: { propertyUrl?: str
   revalidatePath('/admin/gsc');
   return result;
 }
+
+// --- bulk ---
+
+export async function bulkPages(
+  siteId: string,
+  action: 'publish' | 'unpublish' | 'delete' | 'add-locale',
+  ids: string[],
+  locale?: string,
+) {
+  const result = await run(() =>
+    api<{ results: Array<{ id: string; ok: boolean; error?: string }> }>(
+      `/sites/${siteId}/pages/bulk`,
+      { method: 'POST', body: JSON.stringify({ action, ids, locale }) },
+    ),
+  );
+  revalidatePath('/admin');
+  return result;
+}
