@@ -8,7 +8,7 @@ const config: NextConfig = {
   // handler is fine; in production every replica must point at the same Redis.
   cacheHandler:
     process.env.NODE_ENV === 'production'
-      ? require.resolve('@trieb.work/nextjs-turbo-redis-cache')
+      ? require.resolve('./cache-handler.mjs')
       : undefined,
   cacheMaxMemorySize: 0,
   transpilePackages: ['@cms/puck-config', '@cms/db', '@cms/contracts', '@cms/auth'],

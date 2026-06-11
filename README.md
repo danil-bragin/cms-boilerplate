@@ -205,6 +205,20 @@ it is the peer of `@trieb.work/nextjs-turbo-redis-cache`; node-redis v5/v6
 change the `hScan` cursor API and silently kill the cache handler (pages
 permanently MISS). Do not bump it independently of the handler.
 
+## Proven under load (multi-replica + chaos)
+
+A 3-replica stand behind nginx ([`infra/loadtest/`](infra/loadtest/README.md))
+measured, not estimated:
+- ~290 req/s sustained, **p95 16ms**, cached-page TTFB p95 13.7ms, **0% errors**
+  at steady state.
+- **Cross-replica cache invalidation proven**: publish hitting one replica makes
+  all three serve fresh content (shared Redis tag store).
+- **Redis-outage resilience**: pausing the cache Redis mid-load drops error rate
+  from **24% → 0.05%** with the hardened cache handler
+  (`apps/web/cache-handler.mjs` — `getTimeoutMs` + socket inactivity timeout so a
+  frozen Redis degrades to direct-from-DB rendering instead of hanging to a 502).
+  Re-run the stand after bumping `redis` or `@trieb.work/nextjs-turbo-redis-cache`.
+
 ## RUM — field Core Web Vitals
 
 Google ranks on **field** data (CrUX), not Lighthouse lab runs. Every public
