@@ -35,11 +35,12 @@ export async function createPage(
   name: string,
   kind: 'page' | 'post' = 'page',
   author?: string,
+  authorId?: string | null,
 ) {
   const result = await run(() =>
     api<PageSummary>(`/sites/${siteId}/pages`, {
       method: 'POST',
-      body: JSON.stringify({ path, name, kind, author }),
+      body: JSON.stringify({ path, name, kind, author, authorId }),
     }),
   );
   revalidatePath('/admin');
