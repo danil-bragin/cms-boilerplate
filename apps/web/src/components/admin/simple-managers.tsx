@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import type { MenuItem, RedirectDto, SiteDto, WebhookDto } from '@cms/contracts';
+import { WEBHOOK_EVENTS } from '@cms/contracts';
 import {
   createRedirect,
   createWebhook,
@@ -13,8 +14,11 @@ import {
   listWebhooks,
   upsertMenu,
 } from '@/app/admin/actions';
+import { MenuTreeEditor } from './menu-editor';
+import { CheckboxGroup } from './inputs';
 
 const input = { padding: 6 } as const;
+
 
 export function SitePicker({
   sites,
@@ -124,9 +128,10 @@ export function MenusManager({ sites }: { sites: SiteDto[] }) {
   const [siteId, setSiteId] = useState(sites[0]?.id ?? '');
   const [rows, setRows] = useState<MenuRow[]>([]);
   const [slug, setSlug] = useState('main');
-  const [json, setJson] = useState('[\n  { "label": { "en": "Home" }, "href": "/en", "children": [] }\n]');
+  const [items, setItems] = useState<MenuItem[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const siteLocales = sites.find((s) => s.id === siteId)?.locales ?? ['en'];
 
   async function refresh(id = siteId) {
     const result = await listMenus(id);
@@ -145,42 +150,33 @@ export function MenusManager({ sites }: { sites: SiteDto[] }) {
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <strong>{m.slug}</strong>
             <span>
-              <button onClick={() => { setSlug(m.slug); setJson(JSON.stringify(m.items, null, 2)); }}>Edit</button>{' '}
+              <button onClick={() => { setSlug(m.slug); setItems(m.items); }}>Edit</button>{' '}
               <button disabled={pending} onClick={() => start(async () => { await deleteMenu(m.id); await refresh(); })}>Delete</button>
             </span>
           </div>
           <code style={{ fontSize: 12, color: '#777' }}>{m.items.length} items</code>
         </div>
       ))}
+      {rows.length === 0 && <p style={{ color: '#aaa', fontSize: 13 }}>No menus yet.</p>}
       <h4>Create / update menu</h4>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-        <input style={input} placeholder="slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+        <input style={{ ...input, border: '1px solid #d0d0d8', borderRadius: 6 }} placeholder="slug (e.g. main)" value={slug} onChange={(e) => setSlug(e.target.value)} />
         <button
-          disabled={pending}
-          style={{ padding: '6px 16px' }}
+          disabled={pending || !slug}
+          style={{ padding: '7px 18px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
           onClick={() =>
             start(async () => {
-              try {
-                const items = JSON.parse(json) as MenuItem[];
-                const result = await upsertMenu(siteId, { slug, items });
-                setMessage(result.ok ? 'Saved' : result.error?.message ?? 'failed');
-                await refresh();
-              } catch (err) {
-                setMessage(`invalid JSON: ${String(err)}`);
-              }
+              const result = await upsertMenu(siteId, { slug, items });
+              setMessage(result.ok ? 'Saved' : result.error?.message ?? 'failed');
+              await refresh();
             })
           }
         >
-          Save
+          {pending ? 'Saving…' : 'Save menu'}
         </button>
+        {message && <span style={{ color: message === 'Saved' ? '#137333' : '#c5221f' }}>{message}</span>}
       </div>
-      <textarea
-        value={json}
-        onChange={(e) => setJson(e.target.value)}
-        rows={10}
-        style={{ width: '100%', fontFamily: 'monospace', fontSize: 13, padding: 8 }}
-      />
-      {message && <p style={{ color: message === 'Saved' ? '#137333' : '#c5221f' }}>{message}</p>}
+      <MenuTreeEditor locales={siteLocales} value={items} onChange={setItems} />
     </div>
   );
 }
@@ -192,6 +188,7 @@ export function WebhooksManager({ sites }: { sites: SiteDto[] }) {
   const [rows, setRows] = useState<WebhookDto[]>([]);
   const [url, setUrl] = useState('');
   const [newSecret, setNewSecret] = useState<string | null>(null);
+  const [events, setEvents] = useState<string[]>(['page.published', 'page.unpublished']);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -227,13 +224,14 @@ export function WebhooksManager({ sites }: { sites: SiteDto[] }) {
           ))}
         </tbody>
       </table>
+      {rows.length === 0 && <p style={{ color: '#aaa', fontSize: 13 }}>No webhooks yet.</p>}
       <form
-        style={{ display: 'flex', gap: 8 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 520 }}
         onSubmit={(e) => {
           e.preventDefault();
           setError(null);
           start(async () => {
-            const result = await createWebhook(siteId, { url, events: ['page.published', 'page.unpublished'] });
+            const result = await createWebhook(siteId, { url, events: events as ('page.published' | 'page.unpublished')[] });
             if (!result.ok) setError(result.error?.message ?? 'failed');
             else {
               setNewSecret(result.data?.secret ?? null);
@@ -243,8 +241,27 @@ export function WebhooksManager({ sites }: { sites: SiteDto[] }) {
           });
         }}
       >
-        <input style={{ ...input, flex: 1 }} placeholder="https://example.com/hooks/cms" value={url} onChange={(e) => setUrl(e.target.value)} required />
-        <button disabled={pending} style={{ padding: '6px 16px' }}>Add webhook</button>
+        <input
+          style={{ ...input, border: '1px solid #d0d0d8', borderRadius: 6 }}
+          placeholder="https://example.com/hooks/cms"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          required
+        />
+        <div>
+          <span style={{ fontSize: 12, color: '#999' }}>Subscribe to events</span>
+          <CheckboxGroup
+            options={WEBHOOK_EVENTS.map((ev) => ({ value: ev, label: ev }))}
+            value={events}
+            onChange={setEvents}
+          />
+        </div>
+        <button
+          disabled={pending || !url || events.length === 0}
+          style={{ padding: '7px 18px', background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', alignSelf: 'flex-start' }}
+        >
+          Add webhook
+        </button>
       </form>
       {error && <p style={{ color: '#c5221f' }}>{error}</p>}
       <p style={{ color: '#777', fontSize: 13 }}>

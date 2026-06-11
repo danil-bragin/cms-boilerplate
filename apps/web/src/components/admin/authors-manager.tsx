@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import type { SiteDto } from '@cms/contracts';
 import { deleteAuthor, listAuthors, upsertAuthor, type AuthorRow } from '@/app/admin/actions';
 import { SitePicker } from './simple-managers';
+import { Field, UrlListInput } from './inputs';
 
 const input = { padding: 6 } as const;
 
@@ -13,7 +14,7 @@ export function AuthorsManager({ sites }: { sites: SiteDto[] }) {
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
-  const [sameAs, setSameAs] = useState('');
+  const [sameAs, setSameAs] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -34,7 +35,7 @@ export function AuthorsManager({ sites }: { sites: SiteDto[] }) {
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <strong>{a.name}</strong>
             <span>
-              <button onClick={() => { setSlug(a.slug); setName(a.name); setBio(a.bio); setSameAs(a.sameAs.join(', ')); }}>Edit</button>{' '}
+              <button onClick={() => { setSlug(a.slug); setName(a.name); setBio(a.bio); setSameAs(a.sameAs); }}>Edit</button>{' '}
               <button disabled={pending} onClick={() => start(async () => { await deleteAuthor(a.id); await refresh(); })}>Delete</button>
             </span>
           </div>
@@ -48,7 +49,9 @@ export function AuthorsManager({ sites }: { sites: SiteDto[] }) {
           <input style={{ ...input, flex: 1 }} placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <textarea style={input} placeholder="Bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
-        <input style={input} placeholder="Social profiles (sameAs): https://x.com/jane, …" value={sameAs} onChange={(e) => setSameAs(e.target.value)} />
+        <Field label="Social profiles (sameAs)" hint="Press Enter to add each profile URL — strengthens E-E-A-T">
+          <UrlListInput value={sameAs} onChange={setSameAs} />
+        </Field>
         <button
           disabled={pending || !slug || !name}
           style={{ padding: '6px 16px', width: 120 }}
@@ -60,10 +63,10 @@ export function AuthorsManager({ sites }: { sites: SiteDto[] }) {
                 name,
                 bio,
                 avatarKey: null,
-                sameAs: sameAs.split(',').map((u) => u.trim()).filter(Boolean),
+                sameAs,
               });
               if (!result.ok) setError(result.error?.message ?? 'failed');
-              else { setSlug(''); setName(''); setBio(''); setSameAs(''); await refresh(); }
+              else { setSlug(''); setName(''); setBio(''); setSameAs([]); await refresh(); }
             })
           }
         >

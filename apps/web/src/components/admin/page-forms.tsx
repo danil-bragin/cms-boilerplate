@@ -149,7 +149,9 @@ export function SlugOverrideButton({
 export function PageRowActions({ pageId, path }: { pageId: string; path: string }) {
   const t = useTranslations('pages');
   const [editing, setEditing] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [value, setValue] = useState(path);
+  const [dupPath, setDupPath] = useState(`${path === '/' ? '' : path}-copy`);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -181,21 +183,41 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
           rename
         </button>
       )}
-      <button
-        disabled={pending}
-        style={{ fontSize: 12, color: '#888', border: 'none', background: 'none', cursor: 'pointer' }}
-        onClick={() =>
-          startTransition(async () => {
-            const newPath = window.prompt('Path for the copy:', `${path === '/' ? '' : path}-copy`);
-            if (newPath) {
-              const { duplicatePage } = await import('@/app/admin/actions');
-              await duplicatePage(pageId, newPath, `Copy of ${path}`);
+      {duplicating ? (
+        <>
+          <input
+            value={dupPath}
+            onChange={(e) => setDupPath(e.target.value)}
+            pattern="^/([a-z0-9-]+(/[a-z0-9-]+)*)?$"
+            placeholder="/new-path"
+            style={{ padding: 2, fontSize: 12, width: 140, fontFamily: 'monospace' }}
+          />
+          <button
+            disabled={pending || !dupPath}
+            style={{ fontSize: 12 }}
+            onClick={() =>
+              startTransition(async () => {
+                const { duplicatePage } = await import('@/app/admin/actions');
+                await duplicatePage(pageId, dupPath, `Copy of ${path}`);
+                setDuplicating(false);
+              })
             }
-          })
-        }
-      >
-        {t('duplicate')}
-      </button>
+          >
+            ✓ copy
+          </button>
+          <button style={{ fontSize: 12, color: '#888', border: 'none', background: 'none', cursor: 'pointer' }} onClick={() => setDuplicating(false)}>
+            ✕
+          </button>
+        </>
+      ) : (
+        <button
+          disabled={pending}
+          style={{ fontSize: 12, color: '#888', border: 'none', background: 'none', cursor: 'pointer' }}
+          onClick={() => setDuplicating(true)}
+        >
+          {t('duplicate')}
+        </button>
+      )}
       <button
         disabled={pending}
         style={{ fontSize: 12, color: '#c5221f', border: 'none', background: 'none', cursor: 'pointer' }}

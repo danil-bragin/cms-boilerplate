@@ -89,6 +89,13 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
           </tr>
         </thead>
         <tbody>
+          {pages.length === 0 && (
+            <tr>
+              <td colSpan={6} style={{ padding: 16, color: '#aaa', textAlign: 'center' }}>
+                No pages yet — create one below.
+              </td>
+            </tr>
+          )}
           {pages.map((page) => (
             <tr key={page.id} style={{ borderTop: '1px solid #eee', background: selected.has(page.id) ? '#f0f4ff' : undefined }}>
               <td style={{ padding: 8 }}>
