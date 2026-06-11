@@ -1,0 +1,47 @@
+{
+  "nav": {
+    "cms": "CMS Админка",
+    "sites": "Сайты",
+    "redirects": "Редиректы",
+    "menus": "Меню",
+    "authors": "Авторы",
+    "webhooks": "Вебхуки",
+    "searchConsole": "Search Console",
+    "logout": "Выйти"
+  },
+  "pages": {
+    "path": "Путь",
+    "name": "Название",
+    "kind": "Тип",
+    "locales": "Локали",
+    "actions": "Действия",
+    "createPage": "Создать страницу",
+    "creating": "Создание…",
+    "pageName": "Название страницы",
+    "author": "Автор",
+    "selected": "Выбрано: {count}",
+    "publishLatest": "Опубликовать последнюю",
+    "unpublish": "Снять с публикации",
+    "addLocale": "Добавить локаль",
+    "delete": "Удалить",
+    "rename": "переименовать",
+    "duplicate": "дублировать",
+    "deleteConfirm": "Удалить {count} страниц со всеми версиями?"
+  },
+  "editor": {
+    "preview": "Предпросмотр",
+    "versions": "Версии",
+    "publish": "Опубликовать",
+    "unpublish": "Снять с публикации",
+    "saved": "Сохранено",
+    "saving": "Сохранение…",
+    "conflict": "Конфликт: есть новая версия — перезагрузите страницу"
+  },
+  "common": {
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "close": "Закрыть",
+    "create": "Создать",
+    "language": "Язык"
+  }
+}

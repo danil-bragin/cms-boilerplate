@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import type { LocaleSummary, PageSummary, SiteDto } from '@cms/contracts';
+import { useTranslations } from 'next-intl';
 import { bulkPages } from '@/app/admin/actions';
 import { AddLocaleButton, SlugOverrideButton, PageRowActions } from './page-forms';
 
@@ -33,6 +34,7 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
   const [addLocale, setAddLocale] = useState(site.locales[0] ?? 'en');
   const [message, setMessage] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const t = useTranslations('pages');
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -78,11 +80,11 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
                 onChange={(e) => setSelected(e.target.checked ? new Set(pages.map((p) => p.id)) : new Set())}
               />
             </th>
-            <th style={{ padding: 8 }}>Path</th>
-            <th style={{ padding: 8 }}>Name</th>
-            <th style={{ padding: 8 }}>Kind</th>
-            <th style={{ padding: 8 }}>Locales</th>
-            <th style={{ padding: 8 }}>Actions</th>
+            <th style={{ padding: 8 }}>{t('path')}</th>
+            <th style={{ padding: 8 }}>{t('name')}</th>
+            <th style={{ padding: 8 }}>{t('kind')}</th>
+            <th style={{ padding: 8 }}>{t('locales')}</th>
+            <th style={{ padding: 8 }}>{t('actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -130,25 +132,25 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
             flexWrap: 'wrap',
           }}
         >
-          <strong>{selected.size} selected</strong>
-          <button disabled={pending} onClick={() => run('publish')}>Publish latest</button>
-          <button disabled={pending} onClick={() => run('unpublish')}>Unpublish</button>
+          <strong>{t('selected', { count: selected.size })}</strong>
+          <button disabled={pending} onClick={() => run('publish')}>{t('publishLatest')}</button>
+          <button disabled={pending} onClick={() => run('unpublish')}>{t('unpublish')}</button>
           <span>
             <select value={addLocale} onChange={(e) => setAddLocale(e.target.value)}>
               {site.locales.map((l) => (
                 <option key={l} value={l}>{l}</option>
               ))}
             </select>{' '}
-            <button disabled={pending} onClick={() => run('add-locale')}>Add locale</button>
+            <button disabled={pending} onClick={() => run('add-locale')}>{t('addLocale')}</button>
           </span>
           <button
             disabled={pending}
             style={{ color: '#ff9a9a' }}
             onClick={() => {
-              if (window.confirm(`Delete ${selected.size} pages with all versions?`)) run('delete');
+              if (window.confirm(t('deleteConfirm', { count: selected.size }))) run('delete');
             }}
           >
-            Delete
+            {t('delete')}
           </button>
           {message && <span>{message}</span>}
         </div>

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { useTranslations } from 'next-intl';
 import { addLocale, createPage, listAuthors, type AuthorRow } from '@/app/admin/actions';
 
 export function CreatePageForm({ siteId }: { siteId: string }) {
+  const t = useTranslations('pages');
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'page' | 'post'>('page');
@@ -44,7 +46,7 @@ export function CreatePageForm({ siteId }: { siteId: string }) {
         style={{ padding: 6, fontFamily: 'monospace' }}
       />
       <input
-        placeholder="Page name"
+        placeholder={t('pageName')}
         value={name}
         onChange={(e) => setName(e.target.value)}
         required
@@ -65,7 +67,7 @@ export function CreatePageForm({ siteId }: { siteId: string }) {
         </select>
       )}
       <button type="submit" disabled={pending} style={{ padding: '6px 14px' }}>
-        {pending ? 'Creating…' : 'Create page'}
+        {pending ? t('creating') : t('createPage')}
       </button>
       {error && <span style={{ color: '#c5221f', alignSelf: 'center' }}>{error}</span>}
     </form>
@@ -145,6 +147,7 @@ export function SlugOverrideButton({
 }
 
 export function PageRowActions({ pageId, path }: { pageId: string; path: string }) {
+  const t = useTranslations('pages');
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(path);
   const [pending, startTransition] = useTransition();
@@ -191,7 +194,7 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
           })
         }
       >
-        duplicate
+        {t('duplicate')}
       </button>
       <button
         disabled={pending}
@@ -205,7 +208,7 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
           })
         }
       >
-        delete
+        {t('delete')}
       </button>
     </span>
   );

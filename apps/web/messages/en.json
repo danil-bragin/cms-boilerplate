@@ -1,0 +1,47 @@
+{
+  "nav": {
+    "cms": "CMS Admin",
+    "sites": "Sites",
+    "redirects": "Redirects",
+    "menus": "Menus",
+    "authors": "Authors",
+    "webhooks": "Webhooks",
+    "searchConsole": "Search Console",
+    "logout": "Logout"
+  },
+  "pages": {
+    "path": "Path",
+    "name": "Name",
+    "kind": "Kind",
+    "locales": "Locales",
+    "actions": "Actions",
+    "createPage": "Create page",
+    "creating": "Creating…",
+    "pageName": "Page name",
+    "author": "Author",
+    "selected": "{count} selected",
+    "publishLatest": "Publish latest",
+    "unpublish": "Unpublish",
+    "addLocale": "Add locale",
+    "delete": "Delete",
+    "rename": "rename",
+    "duplicate": "duplicate",
+    "deleteConfirm": "Delete {count} pages with all versions?"
+  },
+  "editor": {
+    "preview": "Preview",
+    "versions": "Versions",
+    "publish": "Publish",
+    "unpublish": "Unpublish",
+    "saved": "Saved",
+    "saving": "Saving…",
+    "conflict": "Conflict: newer version exists — reload the page"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "create": "Create",
+    "language": "Language"
+  }
+}
