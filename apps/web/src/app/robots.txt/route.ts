@@ -58,7 +58,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  lines.push(`Sitemap: ${origin}/sitemap.xml`, '');
+  lines.push(`Sitemap: ${origin}/sitemap.xml`, `Sitemap: ${origin}/news-sitemap.xml`, '');
 
   return new NextResponse(lines.join('\n'), {
     headers: {

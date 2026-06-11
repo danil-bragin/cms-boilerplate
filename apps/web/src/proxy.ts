@@ -192,6 +192,6 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
 export const config = {
   // public traffic only — admin/api/preview/seo endpoints/static assets bypass the rewrite
   matcher: [
-    '/((?!_next|api|admin|preview|og|favicon\\.ico|icon|apple-icon|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|sitemaps|indexnow\\.txt|feed\\.xml).*)',
+    '/((?!_next|api|admin|preview|og|favicon\\.ico|icon|apple-icon|manifest\\.webmanifest|robots\\.txt|sitemap\\.xml|news-sitemap\\.xml|sitemaps|indexnow\\.txt|feed\\.xml).*)',
   ],
 };

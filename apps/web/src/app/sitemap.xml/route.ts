@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { count, eq } from 'drizzle-orm';
 import {publishedPages} from '@cms/db';
 import { db } from '@/lib/db';
+import '@/lib/images.server';
 import { resolveSiteByHost } from '@/lib/site-resolver';
 import { siteOrigin } from '@/lib/page-data';
 import { escapeXml, SHARD_SIZE, shardXml, conditional304 } from '@/lib/sitemap';

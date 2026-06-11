@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { db } from '@/lib/db';
+import '@/lib/images.server';
 import { resolveSiteByHost } from '@/lib/site-resolver';
 import { siteOrigin } from '@/lib/page-data';
 import { shardXml, conditional304 } from '@/lib/sitemap';
