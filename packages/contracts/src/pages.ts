@@ -15,6 +15,7 @@ export const createPageBody = z.object({
   name: z.string().min(1).max(200),
   kind: z.enum(['page', 'post']).default('page'),
   author: z.string().max(120).optional(),
+  authorId: z.uuid().nullable().optional(),
 });
 
 export const addLocaleBody = z.object({
@@ -26,6 +27,7 @@ export const updatePageBody = z.object({
   name: z.string().min(1).max(200).optional(),
   kind: z.enum(['page', 'post']).optional(),
   author: z.string().max(120).nullable().optional(),
+  authorId: z.uuid().nullable().optional(),
 });
 export type UpdatePageBody = z.infer<typeof updatePageBody>;
 

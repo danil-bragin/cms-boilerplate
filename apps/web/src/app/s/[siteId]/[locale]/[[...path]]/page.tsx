@@ -151,7 +151,17 @@ export default async function Page({ params }: { params: Promise<Params> }) {
       )}
       {page.kind === 'post' && (
         <p style={{ color: '#888', fontSize: 14, margin: '0 0 16px' }}>
-          {page.author ? `By ${page.author} · ` : ''}
+          {page.author && (
+            <>
+              By{' '}
+              {page.authorSlug ? (
+                <a href={`/${page.locale}/author/${page.authorSlug}`}>{page.author}</a>
+              ) : (
+                page.author
+              )}{' '}
+              ·{' '}
+            </>
+          )}
           <time dateTime={(page.firstPublishedAt ?? page.publishedAt).toISOString()}>
             {(page.firstPublishedAt ?? page.publishedAt).toLocaleDateString(page.locale)}
           </time>
@@ -175,6 +185,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             kind: page.kind,
             author: page.author,
             firstPublishedAt: page.firstPublishedAt,
+            authorUrl: page.authorSlug ? `${origin}/${page.locale}/author/${page.authorSlug}` : undefined,
             image: `${origin}/og/${page.pageId}?locale=${page.locale}&v=${Date.parse(String(page.publishedAt))}`,
           }}
         />

@@ -29,6 +29,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           <Link href="/admin/sites" style={{ fontSize: 14, color: '#555' }}>Sites</Link>
           <Link href="/admin/redirects" style={{ fontSize: 14, color: '#555' }}>Redirects</Link>
           <Link href="/admin/menus" style={{ fontSize: 14, color: '#555' }}>Menus</Link>
+          <Link href="/admin/authors" style={{ fontSize: 14, color: '#555' }}>Authors</Link>
           <Link href="/admin/webhooks" style={{ fontSize: 14, color: '#555' }}>Webhooks</Link>
         </span>
         <span style={{ fontSize: 14, color: '#555' }}>

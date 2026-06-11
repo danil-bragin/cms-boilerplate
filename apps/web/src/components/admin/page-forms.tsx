@@ -1,15 +1,22 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { addLocale, createPage } from '@/app/admin/actions';
+import { useEffect, useState, useTransition } from 'react';
+import { addLocale, createPage, listAuthors, type AuthorRow } from '@/app/admin/actions';
 
 export function CreatePageForm({ siteId }: { siteId: string }) {
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'page' | 'post'>('page');
-  const [author, setAuthor] = useState('');
+  const [authorId, setAuthorId] = useState('');
+  const [authors, setAuthors] = useState<AuthorRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (kind === 'post' && authors.length === 0) {
+      void listAuthors(siteId).then((r) => r.ok && r.data && setAuthors(r.data));
+    }
+  }, [kind, siteId, authors.length]);
 
   return (
     <form
@@ -18,7 +25,8 @@ export function CreatePageForm({ siteId }: { siteId: string }) {
         e.preventDefault();
         setError(null);
         startTransition(async () => {
-          const result = await createPage(siteId, path, name, kind, author || undefined);
+          const selected = authors.find((a) => a.id === authorId);
+          const result = await createPage(siteId, path, name, kind, selected?.name, authorId || null);
           if (!result.ok) setError(result.error?.message ?? 'failed');
           else {
             setPath('');
@@ -47,12 +55,14 @@ export function CreatePageForm({ siteId }: { siteId: string }) {
         <option value="post">post</option>
       </select>
       {kind === 'post' && (
-        <input
-          placeholder="Author"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          style={{ padding: 6 }}
-        />
+        <select value={authorId} onChange={(e) => setAuthorId(e.target.value)} style={{ padding: 6 }}>
+          <option value="">— author —</option>
+          {authors.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
       )}
       <button type="submit" disabled={pending} style={{ padding: '6px 14px' }}>
         {pending ? 'Creating…' : 'Create page'}

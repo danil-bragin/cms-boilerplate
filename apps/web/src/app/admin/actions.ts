@@ -302,3 +302,31 @@ export async function duplicatePage(pageId: string, path: string, name: string) 
   revalidatePath('/admin');
   return result;
 }
+
+// --- authors ---
+
+export interface AuthorRow {
+  id: string;
+  siteId: string;
+  slug: string;
+  name: string;
+  bio: string;
+  avatarKey: string | null;
+  sameAs: string[];
+}
+
+export async function listAuthors(siteId: string) {
+  return run(() => api<AuthorRow[]>(`/sites/${siteId}/authors`));
+}
+
+export async function upsertAuthor(siteId: string, body: { slug: string; name: string; bio: string; avatarKey: string | null; sameAs: string[] }) {
+  const result = await run(() => api(`/sites/${siteId}/authors`, { method: 'PUT', body: JSON.stringify(body) }));
+  revalidatePath('/admin/authors');
+  return result;
+}
+
+export async function deleteAuthor(id: string) {
+  const result = await run(() => api(`/authors/${id}`, { method: 'DELETE' }));
+  revalidatePath('/admin/authors');
+  return result;
+}

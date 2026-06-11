@@ -16,6 +16,7 @@ interface JsonLdProps {
     firstPublishedAt?: Date | null;
     image?: string;
     isHome?: boolean;
+    authorUrl?: string;
   };
 }
 
@@ -81,7 +82,15 @@ export function JsonLd({ site, page }: JsonLdProps) {
               datePublished: (page.firstPublishedAt ?? page.publishedAt).toISOString(),
               dateModified: page.publishedAt.toISOString(),
               mainEntityOfPage: { '@id': `${page.url}/#webpage` },
-              ...(page.author ? { author: { '@type': 'Person', name: page.author } } : {}),
+              ...(page.author
+                ? {
+                    author: {
+                      '@type': 'Person',
+                      name: page.author,
+                      ...(page.authorUrl ? { url: page.authorUrl } : {}),
+                    },
+                  }
+                : {}),
               ...(page.image
                 ? { image: [{ '@type': 'ImageObject', url: page.image, width: 1200, height: 630 }] }
                 : {}),

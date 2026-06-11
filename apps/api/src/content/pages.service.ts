@@ -96,6 +96,7 @@ export class PagesService {
     createdBy: string,
     kind: 'page' | 'post' = 'page',
     author?: string,
+    authorId?: string | null,
   ): Promise<PageSummary> {
     const site = await this.db.query.sites.findFirst({ where: eq(sites.id, siteId) });
     if (!site) throw new NotFoundException({ code: 'site_not_found', message: 'Site not found' });
@@ -113,7 +114,7 @@ export class PagesService {
 
       const [page] = await tx
         .insert(pages)
-        .values({ siteId, path: normalized, name, kind, author: author ?? null })
+        .values({ siteId, path: normalized, name, kind, author: author ?? null, authorId: authorId ?? null })
         .returning();
       const [locale] = await tx
         .insert(pageLocales)
@@ -191,7 +192,7 @@ export class PagesService {
    * automatic 301 redirects from the old URLs; affected cache tags returned
    * by the caller's revalidation.
    */
-  async renamePage(pageId: string, body: { path?: string; name?: string; kind?: 'page' | 'post'; author?: string | null }) {
+  async renamePage(pageId: string, body: { path?: string; name?: string; kind?: 'page' | 'post'; author?: string | null; authorId?: string | null }) {
     const page = await this.db.query.pages.findFirst({ where: eq(pages.id, pageId) });
     if (!page) throw new NotFoundException({ code: 'page_not_found', message: 'Page not found' });
     const newPath = body.path ? normalizePath(body.path) : page.path;
@@ -207,6 +208,7 @@ export class PagesService {
             name: body.name ?? page.name,
             kind: body.kind ?? page.kind,
             author: body.author === undefined ? page.author : body.author,
+            authorId: body.authorId === undefined ? page.authorId : body.authorId,
           })
           .where(eq(pages.id, pageId));
 

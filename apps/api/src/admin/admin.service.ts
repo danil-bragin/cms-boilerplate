@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
-import { menus, pageLocales, redirects, siteMembers, sites, users, webhooks } from '@cms/db';
+import { authors, menus, pageLocales, redirects, siteMembers, sites, users, webhooks } from '@cms/db';
 import type {
   CreateRedirectBody,
   CreateSiteBody,
@@ -183,6 +183,35 @@ export class AdminService {
 
   async deleteWebhook(id: string) {
     await this.db.delete(webhooks).where(eq(webhooks.id, id));
+    return { ok: true };
+  }
+
+  // --- authors ---
+
+  async listAuthors(siteId: string) {
+    return this.db.query.authors.findMany({ where: eq(authors.siteId, siteId) });
+  }
+
+  async upsertAuthor(siteId: string, body: { slug: string; name: string; bio: string; avatarKey: string | null; sameAs: string[] }) {
+    await this.mustGetSite(siteId);
+    const [row] = await this.db
+      .insert(authors)
+      .values({ siteId, ...body })
+      .onConflictDoUpdate({
+        target: [authors.siteId, authors.slug],
+        set: { name: body.name, bio: body.bio, avatarKey: body.avatarKey, sameAs: body.sameAs },
+      })
+      .returning();
+    await this.revalidate.invalidate([`author:${siteId}:${body.slug}`]);
+    return row!;
+  }
+
+  async deleteAuthor(id: string) {
+    const author = await this.db.query.authors.findFirst({ where: eq(authors.id, id) });
+    if (author) {
+      await this.db.delete(authors).where(eq(authors.id, id));
+      await this.revalidate.invalidate([`author:${author.siteId}:${author.slug}`]);
+    }
     return { ok: true };
   }
 

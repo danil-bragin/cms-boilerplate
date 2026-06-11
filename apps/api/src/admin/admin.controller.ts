@@ -19,6 +19,7 @@ import {
   updateSiteBody,
   upsertMenuBody,
   addMemberBody,
+  upsertAuthorBody,
 } from '@cms/contracts';
 import type { AuthContext } from '@cms/auth';
 import { Roles } from '../auth/auth.guard.js';
@@ -31,6 +32,7 @@ class UpdateSiteDto extends createZodDto(updateSiteBody) {}
 class UpdatePageLocaleDto extends createZodDto(updatePageLocaleBody) {}
 class CreateRedirectDto extends createZodDto(createRedirectBody) {}
 class UpsertMenuDto extends createZodDto(upsertMenuBody) {}
+class UpsertAuthorDto extends createZodDto(upsertAuthorBody) {}
 class CreateWebhookDto extends createZodDto(createWebhookBody) {}
 class AddMemberDto extends createZodDto(addMemberBody) {}
 
@@ -129,6 +131,28 @@ export class ContentAdminController {
   async deleteMenu(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthContext) {
     await this.access.assertSiteAccess(user, await this.access.siteForMenu(id));
     return this.adminService.deleteMenu(id);
+  }
+
+  @Get('sites/:siteId/authors')
+  async listAuthors(@Param('siteId', ParseUUIDPipe) siteId: string, @CurrentUser() user: AuthContext) {
+    await this.access.assertSiteAccess(user, siteId, false);
+    return this.adminService.listAuthors(siteId);
+  }
+
+  @Put('sites/:siteId/authors')
+  async upsertAuthor(
+    @Param('siteId', ParseUUIDPipe) siteId: string,
+    @Body() body: UpsertAuthorDto,
+    @CurrentUser() user: AuthContext,
+  ) {
+    await this.access.assertSiteAccess(user, siteId);
+    return this.adminService.upsertAuthor(siteId, body);
+  }
+
+  @Delete('authors/:id')
+  async deleteAuthor(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthContext) {
+    await this.access.assertSiteAccess(user, await this.access.siteForAuthor(id));
+    return this.adminService.deleteAuthor(id);
   }
 
   @Patch('page-locales/:id')

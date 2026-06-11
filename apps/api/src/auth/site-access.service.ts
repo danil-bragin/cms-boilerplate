@@ -1,6 +1,6 @@
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
-import { media, menus, pageLocales, pages, pageVersions, redirects, scheduledPublishes, siteMembers, webhooks } from '@cms/db';
+import { authors, media, menus, pageLocales, pages, pageVersions, redirects, scheduledPublishes, siteMembers, webhooks } from '@cms/db';
 import type { AuthContext } from '@cms/auth';
 import { DB, type Db } from '../db/db.module.js';
 
@@ -104,6 +104,15 @@ export class SiteAccessService {
     });
     if (!row) throw new NotFoundException({ code: 'schedule_not_found', message: 'Not found' });
     return this.siteForPageLocale(row.pageLocaleId);
+  }
+
+  async siteForAuthor(authorId: string): Promise<string> {
+    const row = await this.db.query.authors.findFirst({
+      where: eq(authors.id, authorId),
+      columns: { siteId: true },
+    });
+    if (!row) throw new NotFoundException({ code: 'author_not_found', message: 'Author not found' });
+    return row.siteId;
   }
 
   async siteForWebhook(webhookId: string): Promise<string> {

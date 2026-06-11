@@ -161,8 +161,11 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
     return new NextResponse('Not found', { status: 404 });
   }
 
+  // author archive pages are not in published_pages — let them through to the rewrite
+  const isAuthorPage = segments[2] === 'author' && segments.length === 4;
+
   // fast-404: refuse unpublished paths before rendering (fail open on null)
-  const paths = await publishedPaths();
+  const paths = isAuthorPage ? null : await publishedPaths();
   if (paths) {
     const pagePath = '/' + segments.slice(2).join('/');
     const normalized = pagePath === '/' ? '/' : pagePath.replace(/\/$/, '');

@@ -61,6 +61,8 @@ export const pages = pgTable(
     author: text('author'),
     /** datePublished for Article schema — set once on first publish */
     firstPublishedAt: timestamp('first_published_at', { withTimezone: true }),
+    /** link to an authors row for E-E-A-T (author text kept for back-compat) */
+    authorId: uuid('author_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -246,4 +248,21 @@ export const siteMembers = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('site_members_uq').on(t.siteId, t.userId)],
+);
+
+export const authors = pgTable(
+  'authors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    siteId: uuid('site_id')
+      .notNull()
+      .references(() => sites.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    bio: text('bio').notNull().default(''),
+    avatarKey: text('avatar_key'),
+    sameAs: text('same_as').array().notNull().default([]),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('authors_site_slug_uq').on(t.siteId, t.slug)],
 );

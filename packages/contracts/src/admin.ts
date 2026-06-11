@@ -93,6 +93,17 @@ export const webhookDto = z.object({
   secret: z.string().optional(),
 });
 
+export const upsertAuthorBody = z.object({
+  slug: z.string().regex(/^[a-z0-9-]+$/).min(1).max(80),
+  name: z.string().min(1).max(120),
+  bio: z.string().max(2000).default(''),
+  avatarKey: z.string().max(500).nullable().default(null),
+  sameAs: z.array(z.url()).max(20).default([]),
+});
+export const authorDto = upsertAuthorBody.extend({ id: z.uuid(), siteId: z.uuid() });
+export type UpsertAuthorBody = z.infer<typeof upsertAuthorBody>;
+export type AuthorDto = z.infer<typeof authorDto>;
+
 export const addMemberBody = z.object({
   email: z.email(),
   role: z.enum(['editor', 'viewer']).default('editor'),

@@ -1,7 +1,7 @@
 import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
-import { pages, publishedPages, sites } from '@cms/db';
+import { authors, pages, publishedPages, sites } from '@cms/db';
 import { db } from './db';
 
 export interface SiteInfo {
@@ -50,6 +50,7 @@ export interface PublishedPage {
   publishedAt: Date;
   kind: 'page' | 'post';
   author: string | null;
+  authorSlug: string | null;
   firstPublishedAt: Date | null;
 }
 
@@ -65,10 +66,13 @@ export const getPublishedPage = (siteId: string, locale: string, path: string) =
           published: publishedPages,
           kind: pages.kind,
           author: pages.author,
+          authorSlug: authors.slug,
+          authorName: authors.name,
           firstPublishedAt: pages.firstPublishedAt,
         })
         .from(publishedPages)
         .innerJoin(pages, eq(pages.id, publishedPages.pageId))
+        .leftJoin(authors, eq(authors.id, pages.authorId))
         .where(
           and(
             eq(publishedPages.siteId, siteId),
@@ -88,7 +92,8 @@ export const getPublishedPage = (siteId: string, locale: string, path: string) =
         seo: row.published.seo as PublishedPage['seo'],
         publishedAt: row.published.publishedAt,
         kind: row.kind,
-        author: row.author,
+        author: row.authorName ?? row.author,
+        authorSlug: row.authorSlug,
         firstPublishedAt: row.firstPublishedAt,
       };
     },
