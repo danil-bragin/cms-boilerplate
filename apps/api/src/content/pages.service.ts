@@ -13,7 +13,7 @@ export class PagesService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async listSites(user: AuthContext) {
-    const all = await this.db.query.sites.findMany();
+    const all = (await this.db.query.sites.findMany()).map(redactSiteSettings);
     if (user.roles.includes('cms-admin')) return all;
     const memberships = await this.db.query.siteMembers.findMany({
       where: eq(siteMembers.userId, user.sub),
@@ -322,6 +322,23 @@ export function publicPath(pagePath: string, slugOverride: string | null): strin
   const segments = pagePath.split('/');
   segments[segments.length - 1] = slugOverride;
   return segments.join('/');
+}
+
+/**
+ * Strip secrets from a site's settings before it leaves the API. The settings
+ * jsonb holds gsc.serviceAccount.private_key and indexNowKey — never returned
+ * to the panel (admins read/write those via dedicated endpoints).
+ */
+export function redactSiteSettings<T extends { settings: unknown }>(site: T): T {
+  const settings = (site.settings ?? {}) as Record<string, unknown>;
+  const safe: Record<string, unknown> = {};
+  if (settings.seo) safe.seo = settings.seo;
+  if (settings.org) safe.org = settings.org;
+  if (settings.localeFallback !== undefined) safe.localeFallback = settings.localeFallback;
+  // expose only whether GSC is configured, not the credentials
+  const gsc = settings.gsc as { serviceAccount?: unknown; propertyUrl?: string } | undefined;
+  if (gsc) safe.gsc = { configured: Boolean(gsc.serviceAccount), propertyUrl: gsc.propertyUrl };
+  return { ...site, settings: safe };
 }
 
 export function normalizePath(path: string): string {

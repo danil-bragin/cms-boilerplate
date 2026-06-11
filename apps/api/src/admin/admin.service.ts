@@ -8,6 +8,7 @@ import {
 import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { authors, menus, pageLocales, redirects, siteMembers, sites, users, webhooks } from '@cms/db';
+import { redactSiteSettings } from '../content/pages.service.js';
 import type {
   CreateRedirectBody,
   CreateSiteBody,
@@ -48,7 +49,7 @@ export class AdminService {
       })
       .returning();
     await this.revalidate.invalidate(['sites']);
-    return site!;
+    return redactSiteSettings(site!);
   }
 
   async updateSite(siteId: string, body: UpdateSiteBody) {
@@ -79,7 +80,7 @@ export class AdminService {
       .where(eq(sites.id, siteId))
       .returning();
     await this.revalidate.invalidate(['sites']);
-    return updated!;
+    return redactSiteSettings(updated!);
   }
 
   async updatePageLocale(pageLocaleId: string, slugOverride: string | null) {

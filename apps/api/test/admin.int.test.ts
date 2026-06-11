@@ -33,7 +33,8 @@ describe('admin api', () => {
       .send({ slug: 'second', domains: ['second.example'], defaultLocale: 'en', locales: ['en'] })
       .expect(201);
     expect(res.body.slug).toBe('second');
-    expect((res.body.settings as { indexNowKey: string }).indexNowKey).toMatch(/^[0-9a-f]{32}$/);
+    // indexNowKey is generated server-side but redacted from the response
+    expect((res.body.settings as { indexNowKey?: string }).indexNowKey).toBeUndefined();
   });
 
   it('rejects defaultLocale not in locales', async () => {
@@ -200,6 +201,30 @@ describe('admin api', () => {
       expect(text).not.toContain('<script');
       expect(text).not.toContain('onerror');
       expect(text).not.toContain('javascript:');
+      stack.actAs(ADMIN);
+    });
+  });
+
+  describe('settings secret redaction', () => {
+    it('never returns gsc private key or indexnow key from listSites', async () => {
+      stack.actAs(ADMIN);
+      // configure a GSC service account (secret) on the site
+      await http()
+        .patch(`/sites/${stack.siteId}`)
+        .set(AUTH)
+        .send({ gsc: { serviceAccount: { client_email: 'sa@x.iam', private_key: 'SUPER_SECRET_KEY' } } })
+        .expect(200);
+
+      // a plain editor listing sites must not see the private key or indexnow key
+      stack.actAs(EDITOR);
+      const res = await http().get('/sites').set(AUTH).expect(200);
+      const json = JSON.stringify(res.body);
+      expect(json).not.toContain('SUPER_SECRET_KEY');
+      expect(json).not.toContain('private_key');
+      expect(json).not.toContain('indexNowKey');
+      // but the configured flag IS exposed
+      const site = res.body.find((s: { id: string }) => s.id === stack.siteId);
+      expect(site.settings.gsc.configured).toBe(true);
       stack.actAs(ADMIN);
     });
   });
