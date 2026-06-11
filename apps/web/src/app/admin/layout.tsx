@@ -1,3 +1,4 @@
+import './admin.css';
 import type { ReactNode } from 'react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -15,10 +16,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   const messages = await getMessages();
   const t = await getTranslations('nav');
-  const locale = (await cookies()).get('admin_locale')?.value ?? 'en';
+  const cookieStore = await cookies();
+  const locale = cookieStore.get('admin_locale')?.value ?? 'en';
+  const theme = (cookieStore.get('admin_theme')?.value === 'dark' ? 'dark' : 'light') as 'light' | 'dark';
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className={theme === 'dark' ? 'dark' : undefined}>
       <body style={{ margin: 0, fontFamily: 'system-ui, sans-serif' }}>
         <NextIntlClientProvider messages={messages}>
       <header
