@@ -1,5 +1,6 @@
 'use client';
 
+import { VersionDiff } from './version-diff';
 import { useEffect, useState } from 'react';
 import type { ScheduleDto, VersionListItem } from '@cms/contracts';
 import {
@@ -29,6 +30,7 @@ export function VersionsPanel({
   const [scheduleAt, setScheduleAt] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [diffOf, setDiffOf] = useState<string | null>(null);
 
   async function refresh() {
     const [v, s] = await Promise.all([listVersions(pageLocaleId), listSchedules(pageLocaleId)]);
@@ -138,6 +140,12 @@ export function VersionsPanel({
               <>
                 <button
                   disabled={busy !== null}
+                  onClick={() => setDiffOf(diffOf === v.id ? null : v.id)}
+                >
+                  {diffOf === v.id ? 'Hide diff' : 'Diff vs current'}
+                </button>
+                <button
+                  disabled={busy !== null}
                   onClick={() => act(`restore:${v.id}`, () => restoreVersion(pageLocaleId, v.id))}
                   title="Copies this version's content into a new draft"
                 >
@@ -153,6 +161,9 @@ export function VersionsPanel({
               </>
             )}
           </div>
+          {diffOf === v.id && (
+            <VersionDiff fromVersionId={v.id} toVersionId={currentVersionId} onClose={() => setDiffOf(null)} />
+          )}
         </div>
       ))}
     </div>
