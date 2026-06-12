@@ -190,7 +190,8 @@ export default async function Page({ params }: { params: Promise<Params> }) {
           }}
         />
       )}
-      <Render config={renderConfig} data={page.puckData as never} />
+      {/* metadata flows to puck.metadata in each component (PostList needs siteId/locale) */}
+      <Render config={renderConfig} data={page.puckData as never} metadata={{ siteId, locale: page.locale }} />
     </>
   );
 }

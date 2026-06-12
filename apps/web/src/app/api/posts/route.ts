@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { resolveSiteByHost } from '@/lib/site-resolver';
 import { getPostsPage } from '@/lib/posts';
+import { mapPost } from '@/lib/images.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const result = await getPostsPage(site.id, locale, page, perPage);
   return NextResponse.json(
-    { posts: result.posts, page: result.page, totalPages: result.totalPages },
+    { posts: result.posts.map(mapPost), page: result.page, totalPages: result.totalPages },
     { headers: { 'cache-control': 'public, s-maxage=60, stale-while-revalidate=300' } },
   );
 }

@@ -16,7 +16,42 @@ export interface MediaRef {
 export interface SectionProps {
   maxWidth: '640px' | '960px' | '1280px' | 'none';
   paddingY: '0' | '24px' | '48px' | '96px';
+  background: 'default' | 'muted' | 'dark';
   children: Slot;
+}
+
+export interface HeroProps {
+  eyebrow: string;
+  heading: string;
+  subtext: string;
+  primaryLabel: string;
+  primaryHref: string;
+  secondaryLabel: string;
+  secondaryHref: string;
+  image?: MediaRef;
+  backgroundImage?: MediaRef;
+}
+
+export interface CardProps {
+  image?: MediaRef;
+  heading: string;
+  text: string;
+  href: string;
+}
+
+export interface StatItem {
+  value: string;
+  label: string;
+}
+export interface StatsProps {
+  items: StatItem[];
+}
+
+export interface CTABannerProps {
+  heading: string;
+  subtext: string;
+  buttonLabel: string;
+  buttonHref: string;
 }
 
 export interface ColumnsProps {
@@ -72,6 +107,10 @@ export interface Components {
   Button: ButtonProps;
   Search: SearchProps;
   PostList: PostListProps;
+  Hero: HeroProps;
+  Card: CardProps;
+  Stats: StatsProps;
+  CTABanner: CTABannerProps;
 }
 
 export interface RootProps {

@@ -17,13 +17,21 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
     Section: {
       // slot declarations are required for <Render> to materialize slot props
       fields: { children: { type: 'slot' } } as Fields<SectionProps>,
-      render: ({ maxWidth, paddingY, children: Children }) => (
-        <section style={{ padding: `${paddingY} 16px` }}>
-          <div style={{ maxWidth: maxWidth === 'none' ? undefined : maxWidth, margin: '0 auto' }}>
-            <Children />
-          </div>
-        </section>
-      ),
+      render: ({ maxWidth, paddingY, background, children: Children }) => {
+        const bg =
+          background === 'dark'
+            ? { background: '#0b1020', color: '#e7e9f2' }
+            : background === 'muted'
+              ? { background: '#f6f7fb' }
+              : {};
+        return (
+          <section style={{ padding: `${paddingY} 16px`, ...bg }}>
+            <div style={{ maxWidth: maxWidth === 'none' ? undefined : maxWidth, margin: '0 auto' }}>
+              <Children />
+            </div>
+          </section>
+        );
+      },
     },
     Columns: {
       fields: {
@@ -152,6 +160,113 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
         >
           {label}
         </a>
+      ),
+    },
+    Hero: {
+      render: ({ eyebrow, heading, subtext, primaryLabel, primaryHref, secondaryLabel, secondaryHref, image, backgroundImage }) => {
+        const bgUrl = backgroundImage?.s3Key ? imageUrl(backgroundImage.s3Key, { width: 1920 }) : null;
+        return (
+          <section
+            style={{
+              position: 'relative',
+              padding: '96px 16px',
+              color: '#fff',
+              background: bgUrl ? `linear-gradient(180deg, rgba(8,10,25,0.72), rgba(8,10,25,0.92)), url(${bgUrl}) center / cover` : '#0b1020',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ maxWidth: 1100, margin: '0 auto', textAlign: 'center' }}>
+              {eyebrow && (
+                <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 999, background: 'rgba(255,255,255,0.12)', fontSize: 13, fontWeight: 600, letterSpacing: 0.3, marginBottom: 20 }}>
+                  {eyebrow}
+                </span>
+              )}
+              <h1 style={{ fontSize: 'clamp(2.2rem, 5vw, 3.6rem)', lineHeight: 1.08, fontWeight: 800, margin: '0 0 18px', letterSpacing: -1 }}>{heading}</h1>
+              {subtext && <p style={{ fontSize: 'clamp(1.05rem, 2vw, 1.3rem)', lineHeight: 1.5, color: '#c2c7da', maxWidth: 680, margin: '0 auto 32px' }}>{subtext}</p>}
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {primaryLabel && (
+                  <a href={primaryHref} style={{ padding: '13px 26px', borderRadius: 8, background: '#fff', color: '#0b1020', fontWeight: 600, textDecoration: 'none' }}>{primaryLabel}</a>
+                )}
+                {secondaryLabel && (
+                  <a href={secondaryHref} style={{ padding: '13px 26px', borderRadius: 8, background: 'rgba(255,255,255,0.08)', color: '#fff', fontWeight: 600, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.2)' }}>{secondaryLabel}</a>
+                )}
+              </div>
+              {image?.s3Key && (
+                <div style={{ marginTop: 56 }}>
+                  <img
+                    src={imageUrl(image.s3Key, { width: 1280 })}
+                    srcSet={[640, 1280, 1920].map((w) => `${imageUrl(image.s3Key, { width: w })} ${w}w`).join(', ')}
+                    sizes="(max-width: 1100px) 92vw, 1040px"
+                    alt={image.alt || ''}
+                    width={image.width ?? undefined}
+                    height={image.height ?? undefined}
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
+                    style={{ width: '100%', maxWidth: 1040, height: 'auto', borderRadius: 14, boxShadow: '0 30px 60px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  />
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      },
+    },
+    Card: {
+      render: ({ image, heading, text, href }) => {
+        const inner = (
+          <>
+            {image?.s3Key && (
+              <img
+                src={imageUrl(image.s3Key, { width: 800, height: 450, crop: { focalX: 0.5, focalY: 0.5 } })}
+                srcSet={[400, 800].map((w) => `${imageUrl(image.s3Key, { width: w, height: Math.round((w * 9) / 16), crop: { focalX: 0.5, focalY: 0.5 } })} ${w}w`).join(', ')}
+                sizes="(max-width: 768px) 100vw, 380px"
+                alt={image.alt || ''}
+                loading="lazy"
+                decoding="async"
+                style={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', display: 'block' }}
+              />
+            )}
+            <div style={{ padding: 20 }}>
+              {heading && <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem' }}>{heading}</h3>}
+              {text && <p style={{ margin: 0, color: '#5b6072', lineHeight: 1.55 }}>{text}</p>}
+            </div>
+          </>
+        );
+        const style = {
+          display: 'block',
+          borderRadius: 14,
+          overflow: 'hidden',
+          border: '1px solid #e6e8f0',
+          background: '#fff',
+          textDecoration: 'none',
+          color: 'inherit',
+          height: '100%',
+        } as const;
+        return href ? <a href={href} style={style}>{inner}</a> : <div style={style}>{inner}</div>;
+      },
+    },
+    Stats: {
+      render: ({ items }) => (
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(Math.max((items ?? []).length, 1), 4)}, 1fr)`, gap: 24, textAlign: 'center' }}>
+          {(items ?? []).map((s, i) => (
+            <div key={i}>
+              <div style={{ fontSize: 'clamp(2rem, 4vw, 2.8rem)', fontWeight: 800, letterSpacing: -1, color: '#6366f1' }}>{s.value}</div>
+              <div style={{ color: '#5b6072', fontSize: 14, marginTop: 4 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    CTABanner: {
+      render: ({ heading, subtext, buttonLabel, buttonHref }) => (
+        <div style={{ borderRadius: 18, padding: 'clamp(32px, 6vw, 56px)', textAlign: 'center', background: 'linear-gradient(135deg, #6366f1, #0ea5e9)', color: '#fff' }}>
+          <h2 style={{ fontSize: 'clamp(1.6rem, 3.5vw, 2.4rem)', fontWeight: 800, margin: '0 0 12px', letterSpacing: -0.5 }}>{heading}</h2>
+          {subtext && <p style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.9)', margin: '0 auto 26px', maxWidth: 560 }}>{subtext}</p>}
+          {buttonLabel && (
+            <a href={buttonHref} style={{ display: 'inline-block', padding: '13px 30px', borderRadius: 8, background: '#fff', color: '#1a1a2e', fontWeight: 700, textDecoration: 'none' }}>{buttonLabel}</a>
+          )}
+        </div>
       ),
     },
   },
