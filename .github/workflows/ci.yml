@@ -64,6 +64,26 @@ jobs:
         ports: ["6380:6379"]
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+      minio:
+        image: bitnami/minio:latest
+        ports: ["9000:9000"]
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+          MINIO_DEFAULT_BUCKETS: cms-media
+      imgproxy:
+        image: darthsim/imgproxy:latest
+        ports: ["8081:8080"]
+        env:
+          IMGPROXY_KEY: "00"
+          IMGPROXY_SALT: "00"
+          IMGPROXY_AUTO_WEBP: "true"
+          IMGPROXY_AUTO_AVIF: "true"
+          IMGPROXY_USE_S3: "true"
+          IMGPROXY_S3_ENDPOINT: http://minio:9000
+          IMGPROXY_S3_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: minioadmin
+          AWS_SECRET_ACCESS_KEY: minioadmin
     env:
       DATABASE_URL: postgres://cms:cms@localhost:5433/cms
       REDIS_URL: redis://localhost:6380
@@ -84,10 +104,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      # No object store / imgproxy in this job — seed without media so the demo
-      # pages don't emit image requests that would 404 (broken-image console
-      # errors otherwise drop the Lighthouse best-practices budget).
-      - run: SEED_SKIP_MEDIA=1 pnpm db:migrate && SEED_SKIP_MEDIA=1 pnpm db:seed
+      # The mobile LCP gate must measure real images, so seed WITH media into
+      # MinIO and serve them through imgproxy (both run as service containers).
+      - run: pnpm db:migrate && pnpm db:seed
       - run: pnpm turbo build --filter=web
       - name: Enable Redis keyspace events (required by @trieb.work/nextjs-turbo-redis-cache)
         run: |
@@ -97,5 +116,15 @@ jobs:
         run: |
           (cd apps/web && pnpm start &)
           timeout 60 bash -c 'until curl -sf http://localhost:3000/api/health; do sleep 1; done'
-      - name: Lighthouse CI (perf/seo/a11y budgets)
+      - name: Verify media pipeline serves images (fail if 404)
+        run: |
+          url=$(curl -s http://localhost:3000/en | grep -oE 'http://localhost:8081/[A-Za-z0-9_-]+/[^" ]+\.webp' | head -1)
+          echo "probe image: $url"
+          test -n "$url" || { echo "no imgproxy image URL found on /en — media pipeline broken"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: image/avif,image/webp,*/*' "$url")
+          echo "image status: $code"
+          test "$code" = "200" || { echo "imgproxy did not serve the image (got $code)"; exit 1; }
+      - name: Lighthouse CI — desktop (perf/seo/a11y budgets)
         run: pnpm exec lhci autorun
+      - name: Lighthouse CI — mobile (LCP budget, devtools throttling)
+        run: pnpm exec lhci autorun --config=lighthouserc.mobile.json
