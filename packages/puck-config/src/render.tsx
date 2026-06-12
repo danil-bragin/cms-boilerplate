@@ -162,7 +162,7 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
     },
     Hero: {
       render: ({ eyebrow, heading, subtext, primaryLabel, primaryHref, secondaryLabel, secondaryHref, image, backgroundImage }) => {
-        const bgUrl = backgroundImage?.s3Key ? imageUrl(backgroundImage.s3Key, { width: 1920 }) : null;
+        const bgUrl = backgroundImage?.s3Key ? imageUrl(backgroundImage.s3Key, { width: 1024 }) : null;
         return (
           <section
             style={{
