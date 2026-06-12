@@ -420,7 +420,7 @@ function buildPages(m: DemoMedia, locale: Locale) {
     [
       section([
         heading(t.post1.h1, '1'),
-        image(m.product, { rounded: true, priority: true }),
+        ...(m.product ? [image(m.product, { rounded: true, priority: true })] : []),
         text(t.post1.body),
       ], { maxWidth: '760px' }),
       section([ctaBanner(t.post1.ctaHeading, t.post1.ctaSubtext, t.post1.ctaButton, '/admin')], { maxWidth: '760px', paddingY: '32px' }),
@@ -503,10 +503,10 @@ async function main() {
       slug: 'jane-doe',
       name: 'Jane Doe',
       bio: 'Staff engineer writing about high-load content platforms and technical SEO.',
-      avatarKey: m.avatarJane.s3Key,
+      avatarKey: m.avatarJane?.s3Key ?? null,
       sameAs: ['https://github.com', 'https://www.linkedin.com'],
     })
-    .onConflictDoUpdate({ target: [authors.siteId, authors.slug], set: { name: 'Jane Doe', avatarKey: m.avatarJane.s3Key } })
+    .onConflictDoUpdate({ target: [authors.siteId, authors.slug], set: { name: 'Jane Doe', avatarKey: m.avatarJane?.s3Key ?? null } })
     .returning();
 
   const en = buildPages(m, 'en');

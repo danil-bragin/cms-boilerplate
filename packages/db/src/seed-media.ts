@@ -115,9 +115,26 @@ async function makeWebp(svg: string): Promise<{ buf: Buffer; width: number; heig
   return { buf, width: meta.width ?? 0, height: meta.height ?? 0, blur };
 }
 
-export type DemoMedia = Record<'heroBg' | 'product' | 'feature1' | 'feature2' | 'feature3' | 'avatarJane', SeededMedia>;
+export type DemoMediaKey = 'heroBg' | 'product' | 'feature1' | 'feature2' | 'feature3' | 'avatarJane';
+// values are optional so the demo can seed without a media backend (e.g. CI):
+// pages built from a media-less map simply omit their images.
+export type DemoMedia = Record<DemoMediaKey, SeededMedia | undefined>;
+
+const EMPTY_MEDIA: DemoMedia = {
+  heroBg: undefined,
+  product: undefined,
+  feature1: undefined,
+  feature2: undefined,
+  feature3: undefined,
+  avatarJane: undefined,
+};
 
 export async function seedMedia(db: Db, siteId: string): Promise<DemoMedia> {
+  // Skip media entirely when there is no object store to upload to (CI lighthouse).
+  if (process.env.SEED_SKIP_MEDIA === '1') {
+    console.log('seed-media: SEED_SKIP_MEDIA=1 — skipping image generation/upload');
+    return EMPTY_MEDIA;
+  }
   const specs: Record<string, { svg: string; alt: string }> = {
     heroBg: {
       svg: meshBg(1920, 1080, [
