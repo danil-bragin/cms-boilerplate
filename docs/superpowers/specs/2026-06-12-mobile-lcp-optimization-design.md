@@ -85,12 +85,24 @@ Acceptance: LCP load-time and render-delay both drop; `modern-image-formats` and
 Touches: `packages/puck-config/src/components/search-box.tsx`, `post-pager.tsx`,
 `post-list.tsx`, `apps/web/src/app/s/[siteId]/[locale]/layout.tsx`, vitals reporter.
 
-1. **Search → native form.** Replace the client search island on the critical path
-   with `<form method="get" action="/{locale}/search">`. It works with zero JS; any
-   JS enhancement is optional and deferred.
-2. **PostPager → server pagination.** Render page N server-side with real
-   `<a rel="next/prev">?page=N` links (crawlable, zero JS). Drop the client fetch
-   island from the critical path; keep optional deferred enhancement.
+**Architecture constraints discovered during planning (must be respected):**
+- The public route is `revalidate = false` (fully static, full-HTML Redis cache).
+  Depending on a `?page=N` searchParam would make it dynamic and **defeat the
+  page cache** — so server-side pagination via query string is out.
+- The proxy fast-404s any path not in `published_pages` (`src/proxy.ts`), so a
+  `/{locale}/search` results route would 404 — a native search form target is out.
+
+Given those, the goal (remove client JS from the LCP critical path) is achieved by
+**deferring island hydration**, not by rewriting to forms/server pagination:
+
+1. **Defer-hydrate the search island.** Keep `SearchBox` (it backs `/api/search`),
+   but load/hydrate it lazily — after LCP or on first interaction (focus/click on a
+   lightweight placeholder) — so its JS never competes with the LCP paint.
+2. **Defer-hydrate the PostPager island.** The initial page is already
+   server-rendered (crawlable); only the pagination controls need JS. Hydrate the
+   pager lazily (after LCP / on idle) so the client `web-vitals`/fetch code is off
+   the critical path. Pagination stays client-fetch against `/api/posts` (does not
+   break the static cache).
 3. **Defer vitals.** Load `web-vitals` after LCP / on idle (`requestIdleCallback`)
    so it never competes with the LCP paint.
 4. **Slim styles.** Extract the repeated heavy inline-style objects in the render
