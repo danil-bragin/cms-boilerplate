@@ -64,26 +64,6 @@ jobs:
         ports: ["6380:6379"]
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
-      minio:
-        image: bitnami/minio:latest
-        ports: ["9000:9000"]
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-          MINIO_DEFAULT_BUCKETS: cms-media
-      imgproxy:
-        image: darthsim/imgproxy:latest
-        ports: ["8081:8080"]
-        env:
-          IMGPROXY_KEY: "00"
-          IMGPROXY_SALT: "00"
-          IMGPROXY_AUTO_WEBP: "true"
-          IMGPROXY_AUTO_AVIF: "true"
-          IMGPROXY_USE_S3: "true"
-          IMGPROXY_S3_ENDPOINT: http://minio:9000
-          IMGPROXY_S3_REGION: us-east-1
-          AWS_ACCESS_KEY_ID: minioadmin
-          AWS_SECRET_ACCESS_KEY: minioadmin
     env:
       DATABASE_URL: postgres://cms:cms@localhost:5433/cms
       REDIS_URL: redis://localhost:6380
@@ -104,8 +84,26 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      # The mobile LCP gate must measure real images, so seed WITH media into
-      # MinIO and serve them through imgproxy (both run as service containers).
+      # The mobile LCP gate must measure real images, so run MinIO + imgproxy
+      # (via docker run — official minio/minio needs a `server` command that
+      # service containers can't override) and seed WITH media into MinIO.
+      - name: Start MinIO + imgproxy (media pipeline for the mobile gate)
+        run: |
+          docker network create cms-net
+          docker run -d --name minio --network cms-net -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio server /data --address :9000
+          timeout 40 bash -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
+          docker run --rm --network cms-net --entrypoint sh minio/mc -c \
+            "until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done; mc mb -p local/cms-media"
+          docker run -d --name imgproxy --network cms-net -p 8081:8080 \
+            -e IMGPROXY_KEY=00 -e IMGPROXY_SALT=00 \
+            -e IMGPROXY_AUTO_WEBP=true -e IMGPROXY_AUTO_AVIF=true \
+            -e IMGPROXY_USE_S3=true -e IMGPROXY_S3_ENDPOINT=http://minio:9000 \
+            -e IMGPROXY_S3_REGION=us-east-1 \
+            -e AWS_ACCESS_KEY_ID=minioadmin -e AWS_SECRET_ACCESS_KEY=minioadmin \
+            darthsim/imgproxy
+          timeout 30 bash -c 'until curl -sf http://localhost:8081/health; do sleep 1; done'
       - run: pnpm db:migrate && pnpm db:seed
       - run: pnpm turbo build --filter=web
       - name: Enable Redis keyspace events (required by @trieb.work/nextjs-turbo-redis-cache)
