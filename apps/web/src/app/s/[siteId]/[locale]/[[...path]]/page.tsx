@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Render } from '@puckeditor/core/rsc';
 import { renderConfig } from '@cms/puck-config/render';
 import '@/lib/images.server';
-import { imageUrl } from '@cms/puck-config';
+import { imageUrl, buildSrcSet, SIZES_HERO } from '@cms/puck-config';
 import { findPriorityImage } from '@/lib/lcp-preload';
 import {
   getPublishedAlternates,
@@ -145,8 +145,9 @@ export default async function Page({ params }: { params: Promise<Params> }) {
         <link
           rel="preload"
           as="image"
-          imageSrcSet={[640, 1280, 1920].map((w) => `${imageUrl(lcp, { width: w })} ${w}w`).join(', ')}
-          imageSizes="(max-width: 768px) 100vw, 1280px"
+          fetchPriority="high"
+          imageSrcSet={buildSrcSet(lcp)}
+          imageSizes={SIZES_HERO}
         />
       )}
       {page.kind === 'post' && (
