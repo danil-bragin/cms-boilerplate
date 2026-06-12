@@ -30,6 +30,8 @@ function s3() {
     region: process.env.S3_REGION ?? 'us-east-1',
     endpoint: process.env.S3_ENDPOINT ?? 'http://localhost:9000',
     forcePathStyle: true,
+    // fail fast when S3 is unreachable instead of the default retry backoff
+    maxAttempts: 1,
     credentials: {
       accessKeyId: process.env.S3_ACCESS_KEY_ID ?? 'minioadmin',
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? 'minioadmin',
@@ -150,9 +152,16 @@ export async function seedMedia(db: Db, siteId: string): Promise<DemoMedia> {
     // deterministic key so re-seeding replaces instead of duplicating
     const s3Key = `sites/${siteId}/media/seed/${name}.webp`;
 
-    await client.send(
-      new PutObjectCommand({ Bucket: BUCKET, Key: s3Key, Body: buf, ContentType: 'image/webp' }),
-    );
+    // Upload is best-effort: keep seeding (insert the media row so page refs
+    // stay valid) even when S3/MinIO is unreachable — e.g. CI jobs without a
+    // MinIO service. The object is just missing; rows + blur placeholders remain.
+    try {
+      await client.send(
+        new PutObjectCommand({ Bucket: BUCKET, Key: s3Key, Body: buf, ContentType: 'image/webp' }),
+      );
+    } catch (err) {
+      console.warn(`seed-media: S3 upload skipped for ${name} (${(err as Error).message})`);
+    }
 
     const existing = await db.query.media.findFirst({ where: eq(media.s3Key, s3Key) });
     const mediaId = existing?.id ?? randomUUID();
