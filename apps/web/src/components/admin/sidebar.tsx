@@ -7,7 +7,6 @@ import {
   Globe,
   FileText,
   Menu as MenuIcon,
-  Image as ImageIcon,
   Webhook,
   Users,
   Search,
@@ -18,12 +17,15 @@ import { cn } from '@/lib/cn';
 import { LocaleSwitcher } from './locale-switcher';
 import { ThemeToggle } from './theme-toggle';
 
-const items = [
-  { href: '/admin', key: 'cms', icon: LayoutDashboard, exact: true },
-  { href: '/admin/sites', key: 'sites', icon: Globe },
-  { href: '/admin/redirects', key: 'redirects', icon: CornerUpRight },
+// CONTENT group then SETTINGS group (separator between)
+const contentItems = [
+  { href: '/admin/pages', key: 'pages', icon: FileText },
   { href: '/admin/menus', key: 'menus', icon: MenuIcon },
   { href: '/admin/authors', key: 'authors', icon: Users },
+  { href: '/admin/redirects', key: 'redirects', icon: CornerUpRight },
+] as const;
+const settingsItems = [
+  { href: '/admin/sites', key: 'sites', icon: Globe },
   { href: '/admin/webhooks', key: 'webhooks', icon: Webhook },
   { href: '/admin/gsc', key: 'searchConsole', icon: Search },
 ] as const;
@@ -49,23 +51,11 @@ export function Sidebar({
         {t('cms')}
       </div>
       <nav className="flex-1 space-y-1 px-3">
-        {items.slice(1).map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/');
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                active ? 'bg-sidebar-accent text-foreground' : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {t(item.key)}
-            </Link>
-          );
-        })}
+        <NavGroup items={contentItems} pathname={pathname} t={t} />
+        <div className="px-3 pb-1 pt-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/60">
+          {t('settings')}
+        </div>
+        <NavGroup items={settingsItems} pathname={pathname} t={t} />
       </nav>
       <div className="border-t border-sidebar-border p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
@@ -81,5 +71,39 @@ export function Sidebar({
         </a>
       </div>
     </aside>
+  );
+}
+
+function NavGroup({
+  items,
+  pathname,
+  t,
+}: {
+  items: ReadonlyArray<{ href: string; key: string; icon: typeof FileText }>;
+  pathname: string;
+  t: (k: string) => string;
+}) {
+  return (
+    <>
+      {items.map((item) => {
+        const active = pathname === item.href || pathname.startsWith(item.href + '/');
+        const Icon = item.icon;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              active
+                ? 'bg-sidebar-accent text-foreground'
+                : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground',
+            )}
+          >
+            <Icon className="h-4 w-4" />
+            {t(item.key)}
+          </Link>
+        );
+      })}
+    </>
   );
 }

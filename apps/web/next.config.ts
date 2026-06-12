@@ -33,13 +33,13 @@ const config: NextConfig = {
     // + speculation-rules scripts (and Next's bootstrap). The public site is
     // RSC-only and stays strict (no eval). The admin (behind auth, noindex) runs
     // the Puck editor + React Compiler runtime which need 'unsafe-eval'.
-    const csp = (scriptSrc: string) =>
+    const csp = (scriptSrc: string, extraStyle = '', extraFont = '') =>
       [
         "default-src 'self'",
         scriptSrc,
-        "style-src 'self' 'unsafe-inline'",
+        `style-src 'self' 'unsafe-inline'${extraStyle}`,
         `img-src 'self' data: blob:${imgproxy ? ` ${imgproxy}` : ''}`,
-        "font-src 'self'",
+        `font-src 'self'${extraFont}`,
         `connect-src 'self'${process.env.NEXT_PUBLIC_API_URL ? ` ${process.env.NEXT_PUBLIC_API_URL}` : ''} ${process.env.S3_ENDPOINT ?? ''}`.trim(),
         "frame-ancestors 'none'",
         "base-uri 'self'",
@@ -50,7 +50,11 @@ const config: NextConfig = {
         source: '/admin/:path*',
         headers: [
           ...common,
-          { key: 'Content-Security-Policy', value: csp("script-src 'self' 'unsafe-inline' 'unsafe-eval'") },
+          {
+            key: 'Content-Security-Policy',
+            // Puck editor pulls the Inter webfont stylesheet from rsms.me
+            value: csp("script-src 'self' 'unsafe-inline' 'unsafe-eval'", ' https://rsms.me', ' https://rsms.me'),
+          },
           ...linkHeader,
         ],
       },

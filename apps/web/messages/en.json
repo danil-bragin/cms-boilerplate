@@ -7,7 +7,9 @@
     "authors": "Authors",
     "webhooks": "Webhooks",
     "searchConsole": "Search Console",
-    "logout": "Logout"
+    "logout": "Logout",
+    "pages": "Pages",
+    "settings": "Settings"
   },
   "pages": {
     "path": "Path",
@@ -26,7 +28,10 @@
     "delete": "Delete",
     "rename": "rename",
     "duplicate": "duplicate",
-    "deleteConfirm": "Delete {count} pages with all versions?"
+    "deleteConfirm": "Delete {count} pages with all versions?",
+    "newPage": "New page",
+    "edit": "Edit",
+    "backToPages": "Back to pages"
   },
   "editor": {
     "preview": "Preview",

@@ -5,7 +5,7 @@ const EDITOR_PASSWORD = 'editor';
 
 test('public page renders from the seed', async ({ page }) => {
   await page.goto('/en');
-  await expect(page.locator('h1')).toContainText('Welcome to the CMS boilerplate');
+  await expect(page.locator('h1')).toContainText('Build content sites that win on speed and SEO');
 });
 
 test('editor flow: login → create page → edit → publish → public', async ({ page }) => {
@@ -17,17 +17,17 @@ test('editor flow: login → create page → edit → publish → public', async
   await page.fill('#username', EDITOR_EMAIL);
   await page.fill('#password', EDITOR_PASSWORD);
   await page.click('#kc-login');
-  await page.waitForURL(/\/admin/);
+  await page.waitForURL(/\/admin\/pages/);
   await expect(page.getByText(EDITOR_EMAIL)).toBeVisible();
 
-  // create a page
-  await page.fill('input[placeholder="/path"]', `/${slug}`);
+  // create a page via the dedicated New page route
+  await page.getByRole('link', { name: 'New page' }).click();
+  await page.waitForURL(/\/admin\/pages\/new/);
+  await page.fill('input[placeholder="/about"]', `/${slug}`);
   await page.fill('input[placeholder="Page name"]', `Smoke ${slug}`);
   await page.click('button:has-text("Create page")');
-  await expect(page.locator(`text=/${slug}`)).toBeVisible();
 
-  // open the editor for the default locale
-  await page.click(`tr:has-text("/${slug}") a:has-text("en")`);
+  // create redirects straight into the Puck editor for the new page
   await page.waitForURL(/\/admin\/edit\//);
 
   // component drawer is populated from the shared puck config

@@ -1,35 +1,59 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { LocaleSummary, PageSummary, SiteDto } from '@cms/contracts';
 import { useTranslations } from 'next-intl';
+import { MoreHorizontal, Pencil, Plus } from 'lucide-react';
 import { bulkPages } from '@/app/admin/actions';
-import { AddLocaleButton, SlugOverrideButton, PageRowActions } from './page-forms';
-import { cn } from '@/lib/cn';
+import { AddLocaleButton, RenameDialog, DuplicateDialog, SlugOverrideButton } from './page-forms';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from '@/components/ui/sonner';
 
-function LocaleChip({ summary }: { summary: LocaleSummary }) {
-  const published = summary.publishedVersionId !== null;
+/** A page's locale status chips, each linking into the Puck editor. */
+function LocaleChips({ page, site }: { page: PageSummary; site: SiteDto }) {
   return (
-    <Link href={`/admin/edit/${summary.pageLocaleId}`} className="mr-1 inline-block">
-      <Badge variant={published ? 'success' : 'outline'} className={cn(!published && 'text-amber-600 dark:text-amber-400')}>
-        {summary.locale} v{summary.latestVersionNo} {published ? '●' : '○'}
-      </Badge>
-    </Link>
+    <div className="flex flex-wrap items-center gap-1">
+      {page.locales.map((l: LocaleSummary) => {
+        const published = l.publishedVersionId !== null;
+        return (
+          <Link key={l.pageLocaleId} href={`/admin/edit/${l.pageLocaleId}`} title={`Edit ${l.locale}`}>
+            <Badge variant={published ? 'success' : 'outline'} className="cursor-pointer hover:opacity-80">
+              {l.locale} {published ? '●' : '○'}
+            </Badge>
+          </Link>
+        );
+      })}
+      {site.locales
+        .filter((loc) => !page.locales.some((pl) => pl.locale === loc))
+        .map((loc) => (
+          <AddLocaleButton key={loc} pageId={page.id} locale={loc} />
+        ))}
+    </div>
   );
 }
 
 export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[] }) {
+  const router = useRouter();
+  const t = useTranslations('pages');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addLocale, setAddLocale] = useState(site.locales[0] ?? 'en');
+  const [renaming, setRenaming] = useState<PageSummary | null>(null);
+  const [duplicating, setDuplicating] = useState<PageSummary | null>(null);
   const [pending, start] = useTransition();
-  const t = useTranslations('pages');
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -39,6 +63,11 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
       return next;
     });
   const allSelected = pages.length > 0 && selected.size === pages.length;
+
+  const defaultEditor = (page: PageSummary) => {
+    const def = page.locales.find((l) => l.locale === site.defaultLocale) ?? page.locales[0];
+    return def ? `/admin/edit/${def.pageLocaleId}` : '#';
+  };
 
   function run(action: 'publish' | 'unpublish' | 'delete' | 'add-locale') {
     start(async () => {
@@ -74,14 +103,14 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
             <TableHead>{t('name')}</TableHead>
             <TableHead>{t('kind')}</TableHead>
             <TableHead>{t('locales')}</TableHead>
-            <TableHead>{t('actions')}</TableHead>
+            <TableHead className="text-right">{t('actions')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {pages.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
-                No pages yet — create one below.
+              <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                No pages yet. Click “{t('newPage')}” to create one.
               </TableCell>
             </TableRow>
           )}
@@ -91,30 +120,70 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
                 <Checkbox checked={selected.has(page.id)} onCheckedChange={() => toggle(page.id)} />
               </TableCell>
               <TableCell className="font-mono text-xs">{page.path}</TableCell>
-              <TableCell>{page.name}</TableCell>
-              <TableCell className="text-muted-foreground">{page.kind}</TableCell>
+              <TableCell className="font-medium">{page.name}</TableCell>
               <TableCell>
-                <div className="flex flex-wrap items-center gap-1">
-                  {page.locales.map((l) => (
-                    <span key={l.pageLocaleId} className="inline-flex items-center whitespace-nowrap">
-                      <LocaleChip summary={l} />
-                      <SlugOverrideButton pageLocaleId={l.pageLocaleId} locale={l.locale} current={l.slugOverride} />
-                    </span>
-                  ))}
-                  {site.locales
-                    .filter((loc) => !page.locales.some((pl) => pl.locale === loc))
-                    .map((loc) => (
-                      <AddLocaleButton key={loc} pageId={page.id} locale={loc} />
-                    ))}
-                </div>
+                <Badge variant="outline">{page.kind}</Badge>
               </TableCell>
               <TableCell>
-                <PageRowActions pageId={page.id} path={page.path} />
+                <LocaleChips page={page} site={site} />
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center justify-end gap-1">
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={defaultEditor(page)}>
+                      <Pencil className="mr-1 h-3.5 w-3.5" />
+                      {t('edit')}
+                    </Link>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>{page.path}</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => setRenaming(page)}>{t('rename')} (move)</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setDuplicating(page)}>{t('duplicate')}</DropdownMenuItem>
+                      {page.locales.map((l) => (
+                        <DropdownMenuItem key={l.pageLocaleId} asChild>
+                          <Link href={`/admin/edit/${l.pageLocaleId}`}>Edit {l.locale}</Link>
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        destructive
+                        onSelect={() =>
+                          start(async () => {
+                            if (window.confirm(`Delete ${page.path} with all versions and locales?`)) {
+                              const { deletePage } = await import('@/app/admin/actions');
+                              await deletePage(page.id);
+                              toast.success('Page deleted');
+                              router.refresh();
+                            }
+                          })
+                        }
+                      >
+                        {t('delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="mt-1 flex justify-end gap-1">
+                  {page.locales.map((l) => (
+                    <SlugOverrideButton key={l.pageLocaleId} pageLocaleId={l.pageLocaleId} locale={l.locale} current={l.slugOverride} />
+                  ))}
+                </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+
+      {renaming && <RenameDialog page={renaming} onClose={() => setRenaming(null)} />}
+      {duplicating && <DuplicateDialog page={duplicating} onClose={() => setDuplicating(null)} />}
+
       {selected.size > 0 && (
         <div className="sticky bottom-4 mt-3 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 shadow-lg">
           <strong className="text-sm">{t('selected', { count: selected.size })}</strong>
@@ -138,7 +207,7 @@ export function PagesTable({ site, pages }: { site: SiteDto; pages: PageSummary[
               </SelectContent>
             </Select>
             <Button size="sm" variant="secondary" disabled={pending} onClick={() => run('add-locale')}>
-              {t('addLocale')}
+              <Plus className="h-3.5 w-3.5" /> {t('addLocale')}
             </Button>
           </div>
           <Button

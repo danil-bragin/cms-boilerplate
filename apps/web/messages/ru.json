@@ -7,7 +7,9 @@
     "authors": "Авторы",
     "webhooks": "Вебхуки",
     "searchConsole": "Search Console",
-    "logout": "Выйти"
+    "logout": "Выйти",
+    "pages": "Страницы",
+    "settings": "Настройки"
   },
   "pages": {
     "path": "Путь",
@@ -26,7 +28,10 @@
     "delete": "Удалить",
     "rename": "переименовать",
     "duplicate": "дублировать",
-    "deleteConfirm": "Удалить {count} страниц со всеми версиями?"
+    "deleteConfirm": "Удалить {count} страниц со всеми версиями?",
+    "newPage": "Новая страница",
+    "edit": "Редактировать",
+    "backToPages": "К страницам"
   },
   "editor": {
     "preview": "Предпросмотр",
