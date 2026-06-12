@@ -120,6 +120,23 @@ services:
       timeout: 3s
       retries: 10
 
+  # Same-origin edge: fronts the host-run web app + imgproxy under one origin with
+  # image caching, so the /img same-origin path (the production CDN/nginx pattern)
+  # can be exercised + measured locally. Opt-in:
+  #   docker compose -f infra/docker-compose.yml --profile edge up -d nginx
+  # then run web with IMAGE_PUBLIC_BASE=/img and browse http://localhost:8090
+  nginx:
+    image: nginx:alpine
+    profiles: [edge]
+    ports:
+      - "8090:80"
+    volumes:
+      - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - imgproxy
+
   jaeger:
     # opt-in: docker compose --profile observability up -d
     # traces: OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318

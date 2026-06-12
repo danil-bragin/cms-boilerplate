@@ -8,6 +8,9 @@ export interface MediaRef {
   width?: number | null;
   height?: number | null;
   blurDataUrl?: string | null;
+  /** small inlined data-URI used as the src for the above-the-fold LCP image,
+   *  so it paints with the document instead of as a separate (gating) request */
+  lcpInline?: string | null;
   alt?: string;
   focalX?: number | null;
   focalY?: number | null;

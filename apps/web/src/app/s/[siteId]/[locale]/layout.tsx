@@ -53,12 +53,15 @@ export default async function PublicLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
+  // When images are served same-origin (IMAGE_PUBLIC_BASE="/img" behind nginx),
+  // the connection is already open — a cross-origin preconnect would be useless.
+  const sameOriginImages = (process.env.IMAGE_PUBLIC_BASE ?? '').startsWith('/');
   const imgproxyOrigin = process.env.NEXT_PUBLIC_IMGPROXY_URL ?? process.env.IMGPROXY_URL;
 
   return (
     <html lang={locale}>
       <head>
-        {imgproxyOrigin && <link rel="preconnect" href={imgproxyOrigin} />}
+        {!sameOriginImages && imgproxyOrigin && <link rel="preconnect" href={imgproxyOrigin} />}
         <meta name="theme-color" content="#1a1a2e" />
         <style dangerouslySetInnerHTML={{ __html: globalCss }} />
         <style dangerouslySetInnerHTML={{ __html: renderCss }} />

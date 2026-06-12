@@ -20,6 +20,9 @@ export interface SeededMedia {
   width: number;
   height: number;
   blurDataUrl: string;
+  /** Small inlined data-URI of the image, for the above-the-fold LCP element:
+   *  it arrives with the document so there is no separate (render-gating) request. */
+  lcpInline: string;
   alt: string;
 }
 
@@ -105,14 +108,24 @@ const avatar = (initials: string, c1: string, c2: string) => `
   <text x="120" y="120" dy="0.35em" text-anchor="middle" font-family="system-ui" font-size="96" font-weight="700" fill="#ffffff">${initials}</text>
 </svg>`;
 
-async function makeWebp(svg: string): Promise<{ buf: Buffer; width: number; height: number; blur: string }> {
+async function makeWebp(svg: string): Promise<{ buf: Buffer; width: number; height: number; blur: string; lcpInline: string }> {
   const img = sharp(Buffer.from(svg));
   const meta = await img.metadata();
   const buf = await img.webp({ quality: 82 }).toBuffer();
   // tiny LQIP for the blur background
   const blurBuf = await sharp(Buffer.from(svg)).resize(20).webp({ quality: 40 }).toBuffer();
   const blur = `data:image/webp;base64,${blurBuf.toString('base64')}`;
-  return { buf, width: meta.width ?? 0, height: meta.height ?? 0, blur };
+  // small inline variant for the LCP hero: ~640px wide, AVIF (≈5KB) so the doc
+  // stays light; fall back to WebP if the AVIF encoder is unavailable.
+  let lcpInline: string;
+  try {
+    const avif = await sharp(Buffer.from(svg)).resize(640).avif({ quality: 45 }).toBuffer();
+    lcpInline = `data:image/avif;base64,${avif.toString('base64')}`;
+  } catch {
+    const webp = await sharp(Buffer.from(svg)).resize(640).webp({ quality: 60 }).toBuffer();
+    lcpInline = `data:image/webp;base64,${webp.toString('base64')}`;
+  }
+  return { buf, width: meta.width ?? 0, height: meta.height ?? 0, blur, lcpInline };
 }
 
 export type DemoMediaKey = 'heroBg' | 'product' | 'feature1' | 'feature2' | 'feature3' | 'avatarJane';
@@ -165,7 +178,7 @@ export async function seedMedia(db: Db, siteId: string): Promise<DemoMedia> {
   const out: Record<string, SeededMedia> = {};
 
   for (const [name, spec] of Object.entries(specs)) {
-    const { buf, width, height, blur } = await makeWebp(spec.svg);
+    const { buf, width, height, blur, lcpInline } = await makeWebp(spec.svg);
     // deterministic key so re-seeding replaces instead of duplicating
     const s3Key = `sites/${siteId}/media/seed/${name}.webp`;
 
@@ -202,7 +215,7 @@ export async function seedMedia(db: Db, siteId: string): Promise<DemoMedia> {
         createdBy: 'system',
       });
     }
-    out[name] = { mediaId, s3Key, width, height, blurDataUrl: blur, alt: spec.alt };
+    out[name] = { mediaId, s3Key, width, height, blurDataUrl: blur, lcpInline, alt: spec.alt };
   }
 
   return out as DemoMedia;
