@@ -84,6 +84,21 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - name: Start MinIO + imgproxy (media pipeline for the demo pages)
+        run: |
+          docker run -d --name minio --network host \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio server /data --address :9000
+          timeout 30 bash -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
+          docker run --rm --network host --entrypoint sh minio/mc -c \
+            "mc alias set local http://localhost:9000 minioadmin minioadmin && mc mb -p local/cms-media"
+          docker run -d --name imgproxy --network host \
+            -e IMGPROXY_BIND=:8081 -e IMGPROXY_KEY=00 -e IMGPROXY_SALT=00 \
+            -e IMGPROXY_USE_S3=true -e IMGPROXY_S3_ENDPOINT=http://localhost:9000 \
+            -e IMGPROXY_S3_REGION=us-east-1 \
+            -e AWS_ACCESS_KEY_ID=minioadmin -e AWS_SECRET_ACCESS_KEY=minioadmin \
+            darthsim/imgproxy
+          timeout 30 bash -c 'until curl -sf http://localhost:8081/health; do sleep 1; done'
       - run: pnpm db:migrate && pnpm db:seed
       - run: pnpm turbo build --filter=web
       - name: Enable Redis keyspace events (required by @trieb.work/nextjs-turbo-redis-cache)
