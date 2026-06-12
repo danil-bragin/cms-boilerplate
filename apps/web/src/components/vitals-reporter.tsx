@@ -65,10 +65,15 @@ export function VitalsReporter() {
         window.removeEventListener('pagehide', flush);
       };
     };
-    const ric = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 2000));
-    const idle = ric(start);
+    let cleanup: (() => void) | undefined;
+    const useRic = typeof window.requestIdleCallback === 'function';
+    const idle = useRic
+      ? window.requestIdleCallback(() => { cleanup = start(); })
+      : window.setTimeout(() => { cleanup = start(); }, 2000);
     return () => {
-      if (window.cancelIdleCallback && typeof idle === 'number') window.cancelIdleCallback(idle);
+      if (useRic) window.cancelIdleCallback(idle as number);
+      else clearTimeout(idle as number);
+      cleanup?.();
     };
   }, []);
 

@@ -13,22 +13,23 @@ export function LazyHydrate({ children, placeholder }: { children: ReactNode; pl
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const reveal = () => setShow(true);
+    let done = false;
     const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          reveal();
-          io.disconnect();
-        }
-      },
+      (entries) => { if (entries.some((e) => e.isIntersecting)) reveal(); },
       { rootMargin: '200px' },
     );
+    const reveal = () => { if (done) return; done = true; io.disconnect(); setShow(true); };
     io.observe(el);
-    const ric = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1500));
-    const idle = ric(reveal);
+    const useRic = typeof window.requestIdleCallback === 'function';
+    const idle = useRic ? window.requestIdleCallback(reveal) : window.setTimeout(reveal, 1500);
+    el.addEventListener('pointerdown', reveal, { once: true });
+    el.addEventListener('focusin', reveal, { once: true });
     return () => {
       io.disconnect();
-      if (window.cancelIdleCallback && typeof idle === 'number') window.cancelIdleCallback(idle);
+      if (useRic) window.cancelIdleCallback(idle as number);
+      else clearTimeout(idle as number);
+      el.removeEventListener('pointerdown', reveal);
+      el.removeEventListener('focusin', reveal);
     };
   }, []);
 

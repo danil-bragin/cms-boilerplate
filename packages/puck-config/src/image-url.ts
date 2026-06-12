@@ -77,7 +77,11 @@ function base64Url(bytes: Uint8Array): string {
 /** Width breakpoints that include small mobile sizes (not just 640+). */
 export const RESPONSIVE_WIDTHS = [360, 480, 768, 1024, 1280, 1920] as const;
 
-/** Build a `srcset` string for the given key, optionally cropping to a ratio. */
+/**
+ * Build a `srcset` string for the given key, optionally cropping to a ratio.
+ * Note: `crop` (focal-point gravity) only takes effect when `ratio` is also provided;
+ * without `ratio`, imgproxy uses `rs:fit` and the focal point is ignored.
+ */
 export function buildSrcSet(
   s3Key: string,
   opts: { widths?: readonly number[]; ratio?: [number, number]; crop?: { focalX?: number; focalY?: number } } = {},

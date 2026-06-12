@@ -1,4 +1,5 @@
 import type { PostItem } from './post-list.js';
+import { SIZES_CARD } from './image-url.js';
 
 /**
  * Pure presentational post card — no server-only or client-only deps, so it is
@@ -14,7 +15,7 @@ export function PostCard({ post }: { post: PostItem }) {
         <img
           src={post.image.src}
           srcSet={post.image.srcSet}
-          sizes={'(max-width: 768px) 92vw, 360px'}
+          sizes={SIZES_CARD}
           alt={post.image.alt ?? ''}
           loading="lazy"
           decoding="async"
