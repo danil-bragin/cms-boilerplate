@@ -121,7 +121,7 @@ export function SiteEditor({ site }: { site: SiteDto & { settings?: SiteSettings
         <button
           type="button"
           onClick={() => setSeoOpen((v) => !v)}
-          className="mb-3 text-sm text-muted-foreground hover:text-foreground"
+          className="mb-3 block text-sm text-muted-foreground hover:text-foreground"
         >
           {seoOpen ? '▾' : '▸'} SEO & Organization
         </button>

@@ -156,10 +156,8 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
   const [dupPath, setDupPath] = useState(`${path === '/' ? '' : path}-copy`);
   const [pending, startTransition] = useTransition();
 
-  const link = 'text-xs text-muted-foreground hover:text-foreground disabled:opacity-50';
-
   return (
-    <span className="inline-flex items-center gap-2">
+    <span className="inline-flex items-center gap-1">
       {editing ? (
         <>
           <Input
@@ -170,7 +168,7 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
           />
           <Button
             size="sm"
-            variant="ghost"
+            variant="secondary"
             disabled={pending}
             onClick={() =>
               startTransition(async () => {
@@ -182,11 +180,14 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
           >
             ✓ move
           </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+            ✕
+          </Button>
         </>
       ) : (
-        <button onClick={() => setEditing(true)} className={link}>
+        <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
           {t('rename')}
-        </button>
+        </Button>
       )}
       {duplicating ? (
         <>
@@ -199,7 +200,7 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
           />
           <Button
             size="sm"
-            variant="ghost"
+            variant="secondary"
             disabled={pending || !dupPath}
             onClick={() =>
               startTransition(async () => {
@@ -211,18 +212,20 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
           >
             ✓ copy
           </Button>
-          <button className={link} onClick={() => setDuplicating(false)}>
+          <Button size="sm" variant="ghost" onClick={() => setDuplicating(false)}>
             ✕
-          </button>
+          </Button>
         </>
       ) : (
-        <button disabled={pending} className={link} onClick={() => setDuplicating(true)}>
+        <Button size="sm" variant="ghost" disabled={pending} onClick={() => setDuplicating(true)}>
           {t('duplicate')}
-        </button>
+        </Button>
       )}
-      <button
+      <Button
+        size="sm"
+        variant="ghost"
         disabled={pending}
-        className="text-xs text-destructive hover:opacity-80 disabled:opacity-50"
+        className="text-destructive hover:text-destructive"
         onClick={() =>
           startTransition(async () => {
             if (window.confirm(`Delete ${path} with all versions and locales?`)) {
@@ -233,7 +236,7 @@ export function PageRowActions({ pageId, path }: { pageId: string; path: string 
         }
       >
         {t('delete')}
-      </button>
+      </Button>
     </span>
   );
 }
