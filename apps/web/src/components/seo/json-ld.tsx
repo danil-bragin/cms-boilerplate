@@ -17,6 +17,15 @@ interface JsonLdProps {
     image?: string;
     isHome?: boolean;
     authorUrl?: string;
+    /** Rich author entity → emitted as a linked Person node (sameAs/image/bio)
+     *  so Google can resolve the author entity (isAuthor / E-E-A-T). */
+    authorEntity?: {
+      name: string;
+      url: string;
+      image?: string;
+      sameAs?: string[];
+      description?: string;
+    } | null;
   };
 }
 
@@ -55,7 +64,9 @@ export function JsonLd({ site, page }: JsonLdProps) {
               '@id': `${site.origin}/#organization`,
               name: site.org.name ?? site.name,
               url: site.origin,
-              ...(site.org.logoUrl ? { logo: site.org.logoUrl } : {}),
+              ...(site.org.logoUrl
+                ? { logo: { '@type': 'ImageObject', url: site.org.logoUrl } }
+                : {}),
               ...(site.org.sameAs?.length ? { sameAs: site.org.sameAs } : {}),
             },
           ]
@@ -82,19 +93,36 @@ export function JsonLd({ site, page }: JsonLdProps) {
               datePublished: (page.firstPublishedAt ?? page.publishedAt).toISOString(),
               dateModified: page.publishedAt.toISOString(),
               mainEntityOfPage: { '@id': `${page.url}/#webpage` },
-              ...(page.author
-                ? {
-                    author: {
-                      '@type': 'Person',
-                      name: page.author,
-                      ...(page.authorUrl ? { url: page.authorUrl } : {}),
-                    },
-                  }
-                : {}),
+              ...(page.authorEntity
+                ? { author: { '@id': `${page.authorEntity.url}#person` } }
+                : page.author
+                  ? {
+                      author: {
+                        '@type': 'Person',
+                        name: page.author,
+                        ...(page.authorUrl ? { url: page.authorUrl } : {}),
+                      },
+                    }
+                  : {}),
               ...(page.image
                 ? { image: [{ '@type': 'ImageObject', url: page.image, width: 1200, height: 630 }] }
                 : {}),
               ...(site.org ? { publisher: { '@id': `${site.origin}/#organization` } } : {}),
+            },
+          ]
+        : []),
+      ...(page.authorEntity
+        ? [
+            {
+              '@type': 'Person',
+              '@id': `${page.authorEntity.url}#person`,
+              name: page.authorEntity.name,
+              url: page.authorEntity.url,
+              ...(page.authorEntity.description ? { description: page.authorEntity.description } : {}),
+              ...(page.authorEntity.image
+                ? { image: { '@type': 'ImageObject', url: page.authorEntity.image } }
+                : {}),
+              ...(page.authorEntity.sameAs?.length ? { sameAs: page.authorEntity.sameAs } : {}),
             },
           ]
         : []),

@@ -13,6 +13,7 @@ import {
   siteOrigin,
 } from '@/lib/page-data';
 import { JsonLd } from '@/components/seo/json-ld';
+import { getAuthor } from '@/lib/authors';
 
 /**
  * Internal route behind the proxy rewrite (/en/about → /s/{siteId}/en/about).
@@ -139,6 +140,21 @@ export default async function Page({ params }: { params: Promise<Params> }) {
   // immediately instead of discovering it deep in the parsed HTML
   const lcp = findPriorityImage(page.puckData);
 
+  // rich author entity for the Article JSON-LD (Person with sameAs/image/bio)
+  const authorRec =
+    page.kind === 'post' && page.authorSlug ? await getAuthor(siteId, page.authorSlug, page.locale) : null;
+  const authorEntity = authorRec
+    ? {
+        name: authorRec.name,
+        url: `${origin}/${page.locale}/author/${authorRec.slug}`,
+        image: authorRec.avatarKey
+          ? imageUrl(authorRec.avatarKey, { width: 200, height: 200, crop: { focalX: 0.5, focalY: 0.5 } })
+          : undefined,
+        sameAs: authorRec.sameAs?.length ? authorRec.sameAs : undefined,
+        description: authorRec.bio || undefined,
+      }
+    : undefined;
+
   return (
     <>
       {lcp && (
@@ -187,6 +203,7 @@ export default async function Page({ params }: { params: Promise<Params> }) {
             author: page.author,
             firstPublishedAt: page.firstPublishedAt,
             authorUrl: page.authorSlug ? `${origin}/${page.locale}/author/${page.authorSlug}` : undefined,
+            authorEntity,
             image: `${origin}/og/${page.pageId}?locale=${page.locale}&v=${Date.parse(String(page.publishedAt))}`,
           }}
         />

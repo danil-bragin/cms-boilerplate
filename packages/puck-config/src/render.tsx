@@ -2,6 +2,7 @@ import type { Config, Fields } from '@puckeditor/core';
 import type { ColumnsProps, SectionProps } from './types.js';
 import type { Components, RootProps } from './types.js';
 import { imageUrl, buildSrcSet, SIZES_HERO, SIZES_CARD, SIZES_CONTENT } from './image-url.js';
+import { slugify } from './slug.js';
 import { SearchBox } from './components/search-box.js';
 import { LazyHydrate } from './components/lazy-hydrate.js';
 import { PostListServer } from './post-list.js';
@@ -58,7 +59,13 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
     Heading: {
       render: ({ text, level }) => {
         const Tag = `h${level}` as const;
-        return <Tag>{text}</Tag>;
+        // stable anchor id → deep-linkable, RAG-addressable passage section
+        const id = slugify(text);
+        return (
+          <Tag id={id || undefined} style={{ scrollMarginTop: 80 }}>
+            {text}
+          </Tag>
+        );
       },
     },
     Text: {
