@@ -20,35 +20,47 @@ const config: NextConfig = {
   reactCompiler: true,
   async headers() {
     const imgproxy = process.env.NEXT_PUBLIC_IMGPROXY_URL ?? process.env.IMGPROXY_URL;
+    const common = [
+      // bfcache insurance: third-party scripts can't register unload handlers
+      { key: 'Permissions-Policy', value: 'unload=()' },
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+    ];
+    // CDNs (Cloudflare et al.) lift Link headers into 103 Early Hints;
+    // nginx >=1.29.8 proxies them (see infra/nginx/nginx.conf)
+    const linkHeader = imgproxy ? [{ key: 'Link', value: `<${imgproxy}>; rel=preconnect` }] : [];
+    // Baseline CSP. 'unsafe-inline' for scripts is required by the inline JSON-LD
+    // + speculation-rules scripts (and Next's bootstrap). The public site is
+    // RSC-only and stays strict (no eval). The admin (behind auth, noindex) runs
+    // the Puck editor + React Compiler runtime which need 'unsafe-eval'.
+    const csp = (scriptSrc: string) =>
+      [
+        "default-src 'self'",
+        scriptSrc,
+        "style-src 'self' 'unsafe-inline'",
+        `img-src 'self' data: blob:${imgproxy ? ` ${imgproxy}` : ''}`,
+        "font-src 'self'",
+        `connect-src 'self'${process.env.NEXT_PUBLIC_API_URL ? ` ${process.env.NEXT_PUBLIC_API_URL}` : ''} ${process.env.S3_ENDPOINT ?? ''}`.trim(),
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+      ].join('; ');
     return [
       {
-        source: '/:path*',
+        source: '/admin/:path*',
         headers: [
-          // bfcache insurance: third-party scripts can't register unload handlers
-          { key: 'Permissions-Policy', value: 'unload=()' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          {
-            // Baseline CSP. 'unsafe-inline' for scripts is required by the inline
-            // JSON-LD + speculation-rules scripts (and Next's bootstrap); tighten
-            // to nonces if you add third-party scripts. frame-ancestors blocks
-            // clickjacking; imgproxy origin is allowed for images.
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline'",
-              "style-src 'self' 'unsafe-inline'",
-              `img-src 'self' data: blob:${imgproxy ? ` ${imgproxy}` : ''}`,
-              "font-src 'self'",
-              `connect-src 'self'${process.env.NEXT_PUBLIC_API_URL ? ` ${process.env.NEXT_PUBLIC_API_URL}` : ''} ${process.env.S3_ENDPOINT ?? ''}`.trim(),
-              "frame-ancestors 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-            ].join('; '),
-          },
-          // CDNs (Cloudflare et al.) lift Link headers into 103 Early Hints;
-          // nginx >=1.29.8 proxies them (see infra/nginx/nginx.conf)
-          ...(imgproxy ? [{ key: 'Link', value: `<${imgproxy}>; rel=preconnect` }] : []),
+          ...common,
+          { key: 'Content-Security-Policy', value: csp("script-src 'self' 'unsafe-inline' 'unsafe-eval'") },
+          ...linkHeader,
+        ],
+      },
+      {
+        // everything except /admin — strict, no eval
+        source: '/((?!admin).*)',
+        headers: [
+          ...common,
+          { key: 'Content-Security-Policy', value: csp("script-src 'self' 'unsafe-inline'") },
+          ...linkHeader,
         ],
       },
     ];
