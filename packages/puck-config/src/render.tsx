@@ -205,10 +205,12 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
               </div>
               {image?.s3Key && (
                 <div style={{ marginTop: 56 }}>
+                  {/* LCP element: when an inline data-URI is present it is the src
+                      (no srcset) so the image paints with the document — no
+                      separate, render-gating request. Otherwise responsive network. */}
                   <img
-                    src={imageUrl(image.s3Key, { width: 768 })}
-                    srcSet={buildSrcSet(image.s3Key)}
-                    sizes={SIZES_HERO}
+                    src={image.lcpInline || imageUrl(image.s3Key, { width: 768 })}
+                    {...(image.lcpInline ? {} : { srcSet: buildSrcSet(image.s3Key), sizes: SIZES_HERO })}
                     alt={image.alt || ''}
                     width={image.width ?? undefined}
                     height={image.height ?? undefined}

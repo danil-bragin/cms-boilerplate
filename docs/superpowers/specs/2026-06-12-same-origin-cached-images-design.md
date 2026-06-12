@@ -87,6 +87,24 @@ shows `X-Cache-Status: HIT` and Load Time drops toward 0. Visuals unchanged.
 - A Node/imgproxy hop is added per cold image, but the nginx cache serves repeats;
   net is faster, matching imgproxy's documented production architecture.
 
+## Measurement finding (during implementation) — inline LCP is the real lever
+
+Same-origin + cache are architecturally correct (imgproxy's documented prod
+pattern; verified: nginx `X-Cache-Status` MISS→HIT, signatures still validate) and
+help the real field. But the **synthetic Lighthouse slow-4G LCP stayed 1.4s**: the
+waterfall showed the LCP image is a *separate request* that (a) can't start until
+the document downloads (~620ms under throttle) and (b) shares the throttled pipe
+with ~110KB of React/Next framework JS (`react-dom`+`scheduler`, not cuttable
+without dropping interactivity). Origin/encode were never the lab bottleneck.
+
+The lever that moves it: **inline the above-the-fold LCP image as a data-URI** so
+it arrives with the document — no gated request. `seed-media` generates a small
+(~640px AVIF, ≈5KB) `lcpInline` data-URI per image; the seed attaches it to the
+hero's media ref only (via `lcpMediaRef`, so other images don't bloat the HTML);
+the Hero render uses it as `src` (no srcset) when present. Measured under nginx:
+**mobile LCP 1.4s → 0.7s, perf 100, CLS 0** (doc +~3KB). Real uploads would have
+the media worker populate `lcpInline` for above-the-fold images.
+
 ## Out of Scope
 
 - CDN configuration (documented as the prod extension; nginx cache is the local/self-host equivalent).

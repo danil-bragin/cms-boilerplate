@@ -28,7 +28,10 @@ const config: NextConfig = {
     ];
     // CDNs (Cloudflare et al.) lift Link headers into 103 Early Hints;
     // nginx >=1.29.8 proxies them (see infra/nginx/nginx.conf)
-    const linkHeader = imgproxy ? [{ key: 'Link', value: `<${imgproxy}>; rel=preconnect` }] : [];
+    // skip the cross-origin preconnect when images are served same-origin (behind nginx)
+    const sameOriginImages = (process.env.IMAGE_PUBLIC_BASE ?? '').startsWith('/');
+    const linkHeader =
+      imgproxy && !sameOriginImages ? [{ key: 'Link', value: `<${imgproxy}>; rel=preconnect` }] : [];
     // Baseline CSP. 'unsafe-inline' for scripts is required by the inline JSON-LD
     // + speculation-rules scripts (and Next's bootstrap). The public site is
     // RSC-only and stays strict (no eval). The admin (behind auth, noindex) runs

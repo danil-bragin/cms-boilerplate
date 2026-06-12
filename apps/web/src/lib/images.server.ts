@@ -16,7 +16,10 @@ if (
 }
 configureImages({
   mode: 'imgproxy',
-  baseUrl: process.env.IMGPROXY_URL ?? 'http://localhost:8081',
+  // Same-origin path (e.g. "/img") when fronted by an nginx/CDN that reverse-
+  // proxies + caches imgproxy — reuses the document's warm connection and the
+  // edge cache. Falls back to the direct imgproxy origin for zero-config dev.
+  baseUrl: process.env.IMAGE_PUBLIC_BASE || (process.env.IMGPROXY_URL ?? 'http://localhost:8081'),
   bucket: process.env.S3_BUCKET ?? 'cms-media',
   key: imgproxyKey,
   salt: imgproxySalt,

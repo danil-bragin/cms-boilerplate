@@ -38,6 +38,11 @@ const mediaRef = (m: SeededMedia) => ({
   focalY: 50,
 });
 
+// Like mediaRef but carries the inline LCP data-URI — use ONLY for the
+// above-the-fold hero image (one per page) so the rest of the page's media
+// refs don't bloat the HTML/snapshot.
+const lcpMediaRef = (m: SeededMedia) => ({ ...mediaRef(m), lcpInline: m.lcpInline });
+
 const heading = (text: string, level: '1' | '2' | '3' | '4') => block('Heading', { text, level });
 const text = (html: string) => block('Text', { text: html });
 const image = (m: SeededMedia, opts: { ratio?: string; rounded?: boolean; priority?: boolean } = {}) =>
@@ -79,7 +84,7 @@ const hero = (props: {
     primaryHref: props.primaryHref ?? '#',
     secondaryLabel: props.secondaryLabel ?? '',
     secondaryHref: props.secondaryHref ?? '#',
-    ...(props.image ? { image: mediaRef(props.image) } : {}),
+    ...(props.image ? { image: lcpMediaRef(props.image) } : {}),
     ...(props.backgroundImage ? { backgroundImage: mediaRef(props.backgroundImage) } : {}),
   });
 const card = (m: SeededMedia | undefined, h: string, t: string, href = '') =>
