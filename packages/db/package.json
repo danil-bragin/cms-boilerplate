@@ -21,8 +21,10 @@
     "lint": "eslint src --max-warnings 50"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1065.0",
     "@types/node": "^25.9.2",
     "drizzle-kit": "^0.31.10",
+    "sharp": "^0.34.5",
     "tsx": "^4.22.4",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"

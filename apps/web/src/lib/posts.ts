@@ -4,6 +4,15 @@ import { and, count, desc, eq } from 'drizzle-orm';
 import { pages, publishedPages } from '@cms/db';
 import { db } from './db';
 
+/** Raw cover reference extracted from a post's Puck snapshot (URL signed later). */
+export interface PostCover {
+  s3Key: string;
+  width?: number | null;
+  height?: number | null;
+  blurDataUrl?: string | null;
+  alt?: string;
+}
+
 export interface PostSummary {
   path: string;
   locale: string;
@@ -12,10 +21,40 @@ export interface PostSummary {
   author: string | null;
   publishedAt: string;
   firstPublishedAt: string;
+  cover: PostCover | null;
 }
 
 export function postsTag(siteId: string, locale: string): string {
   return `posts:${siteId}:${locale}`;
+}
+
+interface MediaRefShape {
+  s3Key?: string;
+  width?: number | null;
+  height?: number | null;
+  blurDataUrl?: string | null;
+  alt?: string;
+}
+
+const toCover = (ref: MediaRefShape | undefined | null): PostCover | null =>
+  ref?.s3Key
+    ? { s3Key: ref.s3Key, width: ref.width ?? null, height: ref.height ?? null, blurDataUrl: ref.blurDataUrl ?? null, alt: ref.alt ?? '' }
+    : null;
+
+/** Cover = the page's OG image, else the first block carrying a media reference. */
+function extractCover(puck: unknown): PostCover | null {
+  const data = puck as {
+    root?: { props?: { ogImage?: MediaRefShape } };
+    content?: Array<{ props?: Record<string, MediaRefShape | undefined> }>;
+  };
+  const og = toCover(data?.root?.props?.ogImage);
+  if (og) return og;
+  for (const b of data?.content ?? []) {
+    const p = b?.props ?? {};
+    const c = toCover(p.media ?? p.image ?? p.backgroundImage);
+    if (c) return c;
+  }
+  return null;
 }
 
 export interface PostsPage {
@@ -48,6 +87,7 @@ export const getPostsPage = (siteId: string, locale: string, page = 1, perPage =
           path: publishedPages.path,
           locale: publishedPages.locale,
           seo: publishedPages.seo,
+          puckData: publishedPages.puckData,
           publishedAt: publishedPages.publishedAt,
           author: pages.author,
           firstPublishedAt: pages.firstPublishedAt,
@@ -73,6 +113,7 @@ export const getPostsPage = (siteId: string, locale: string, page = 1, perPage =
           author: r.author,
           publishedAt: r.publishedAt.toISOString(),
           firstPublishedAt: (r.firstPublishedAt ?? r.publishedAt).toISOString(),
+          cover: extractCover(r.puckData),
         })),
         total,
         page,
@@ -93,6 +134,7 @@ export const getLatestPosts = (siteId: string, locale: string, limit = 50) =>
           path: publishedPages.path,
           locale: publishedPages.locale,
           seo: publishedPages.seo,
+          puckData: publishedPages.puckData,
           publishedAt: publishedPages.publishedAt,
           author: pages.author,
           firstPublishedAt: pages.firstPublishedAt,
@@ -116,6 +158,7 @@ export const getLatestPosts = (siteId: string, locale: string, limit = 50) =>
         author: r.author,
         publishedAt: r.publishedAt.toISOString(),
         firstPublishedAt: (r.firstPublishedAt ?? r.publishedAt).toISOString(),
+        cover: extractCover(r.puckData),
       }));
     },
     ['latest-posts', siteId, locale, String(limit)],

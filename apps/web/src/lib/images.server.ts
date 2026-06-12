@@ -1,6 +1,7 @@
 import 'server-only';
-import { configureImages, configurePosts } from '@cms/puck-config';
-import { getLatestPosts, getPostsPage } from './posts';
+import { configureImages, configurePosts, imageUrl } from '@cms/puck-config';
+import type { PostItem } from '@cms/puck-config';
+import { getLatestPosts, getPostsPage, type PostSummary } from './posts';
 
 /** Server module graph: sign imgproxy URLs directly — keys never reach the client. */
 const imgproxyKey = process.env.IMGPROXY_KEY ?? '';
@@ -21,13 +22,27 @@ configureImages({
   salt: imgproxySalt,
 });
 
-const mapPost = (p: { path: string; locale: string; title: string; description: string; author: string | null; firstPublishedAt: string }) => ({
+const COVER_W = 800;
+const ratioH = (w: number) => Math.round((w * 9) / 16);
+
+/** Map a DB post summary to the wire shape, signing the cover URL server-side. */
+export const mapPost = (p: PostSummary): PostItem => ({
   path: p.path,
   locale: p.locale,
   title: p.title,
   description: p.description,
   author: p.author,
   firstPublishedAt: p.firstPublishedAt,
+  image: p.cover
+    ? {
+        src: imageUrl(p.cover.s3Key, { width: COVER_W, height: ratioH(COVER_W), crop: { focalX: 0.5, focalY: 0.5 } }),
+        srcSet: [400, 800]
+          .map((w) => `${imageUrl(p.cover!.s3Key, { width: w, height: ratioH(w), crop: { focalX: 0.5, focalY: 0.5 } })} ${w}w`)
+          .join(', '),
+        blurDataUrl: p.cover.blurDataUrl ?? null,
+        alt: p.cover.alt ?? '',
+      }
+    : null,
 });
 
 configurePosts(

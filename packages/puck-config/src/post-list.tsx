@@ -3,6 +3,15 @@
  * The web app injects a resolver server-side; in the editor canvas (client)
  * the component renders a static placeholder instead.
  */
+import { PostCard, postGridStyle } from './post-card.js';
+
+export interface PostImage {
+  /** pre-signed imgproxy URL (built server-side) so the client never needs keys */
+  src: string;
+  srcSet: string;
+  blurDataUrl?: string | null;
+  alt?: string;
+}
 
 export interface PostItem {
   path: string;
@@ -11,6 +20,7 @@ export interface PostItem {
   description: string;
   author: string | null;
   firstPublishedAt: string;
+  image?: PostImage | null;
 }
 
 export type PostsResolver = (siteId: string, locale: string, limit: number) => Promise<PostItem[]>;
@@ -28,6 +38,9 @@ export function configurePosts(next: PostsResolver, paged?: PostsPageResolver): 
   resolver = next;
   pageResolver = paged;
 }
+
+const headingStyle = { margin: '0 0 24px', fontSize: '1.6rem', fontWeight: 700, letterSpacing: -0.4 } as const;
+const emptyStyle = { color: '#8a90a2' } as const;
 
 export async function PostListServer({
   siteId,
@@ -47,8 +60,8 @@ export async function PostListServer({
     const { PostPager } = await import('./components/post-pager.js');
     return (
       <section>
-        {heading && <h2>{heading}</h2>}
-        {posts.length === 0 && <p style={{ color: '#888' }}>No posts yet.</p>}
+        {heading && <h2 style={headingStyle}>{heading}</h2>}
+        {posts.length === 0 && <p style={emptyStyle}>No posts yet.</p>}
         <PostPager initial={posts} totalPages={totalPages} perPage={limit} />
       </section>
     );
@@ -56,27 +69,11 @@ export async function PostListServer({
   const posts = resolver ? await resolver(siteId, locale, limit) : [];
   return (
     <section>
-      {heading && <h2>{heading}</h2>}
-      {posts.length === 0 && <p style={{ color: '#888' }}>No posts yet.</p>}
-      <div style={{ display: 'grid', gap: 16 }}>
+      {heading && <h2 style={headingStyle}>{heading}</h2>}
+      {posts.length === 0 && <p style={emptyStyle}>No posts yet.</p>}
+      <div style={postGridStyle}>
         {posts.map((post) => (
-          <article key={post.path} style={{ borderBottom: '1px solid #eee', paddingBottom: 12 }}>
-            <h3 style={{ margin: '0 0 4px' }}>
-              <a
-                href={`/${post.locale}${post.path === '/' ? '' : post.path}`}
-                style={{ textDecoration: 'none', color: 'inherit' }}
-              >
-                {post.title}
-              </a>
-            </h3>
-            <p style={{ margin: '0 0 4px', color: '#555' }}>{post.description}</p>
-            <small style={{ color: '#888' }}>
-              {post.author ? `${post.author} · ` : ''}
-              <time dateTime={post.firstPublishedAt}>
-                {new Date(post.firstPublishedAt).toLocaleDateString(post.locale)}
-              </time>
-            </small>
-          </article>
+          <PostCard key={post.path} post={post} />
         ))}
       </div>
     </section>

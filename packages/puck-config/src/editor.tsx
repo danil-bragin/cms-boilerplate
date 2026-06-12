@@ -31,8 +31,10 @@ export function createEditorConfig(
       defaultProps: { title: '', description: '', noindex: false },
     },
     categories: {
+      sections: { components: ['Hero', 'CTABanner', 'Stats'], title: 'Sections' },
       layout: { components: ['Section', 'Columns'], title: 'Layout' },
-      content: { components: ['Heading', 'Text', 'Image', 'Button'], title: 'Content' },
+      content: { components: ['Heading', 'Text', 'Image', 'Card', 'Button'], title: 'Content' },
+      other: { components: ['Search', 'PostList'], title: 'Other' },
     },
     components: {
       Section: {
@@ -58,9 +60,18 @@ export function createEditorConfig(
               { label: 'L', value: '96px' },
             ],
           },
+          background: {
+            type: 'select',
+            label: 'Background',
+            options: [
+              { label: 'Default', value: 'default' },
+              { label: 'Muted', value: 'muted' },
+              { label: 'Dark', value: 'dark' },
+            ],
+          },
           children: { type: 'slot' },
         },
-        defaultProps: { maxWidth: '960px', paddingY: '48px', children: [] },
+        defaultProps: { maxWidth: '960px', paddingY: '48px', background: 'default', children: [] },
       },
       Columns: {
         ...renderConfig.components.Columns,
@@ -187,6 +198,71 @@ export function createEditorConfig(
           },
         },
         defaultProps: { label: 'Button', href: '#', variant: 'primary' },
+      },
+      Hero: {
+        ...renderConfig.components.Hero,
+        fields: {
+          eyebrow: { type: 'text', label: 'Eyebrow (small label)' },
+          heading: { type: 'text', label: 'Heading' },
+          subtext: { type: 'textarea', label: 'Subtext' },
+          primaryLabel: { type: 'text', label: 'Primary button' },
+          primaryHref: { type: 'text', label: 'Primary link' },
+          secondaryLabel: { type: 'text', label: 'Secondary button' },
+          secondaryHref: { type: 'text', label: 'Secondary link' },
+          image: { ...opts.mediaField, label: 'Foreground image (product shot)' },
+          backgroundImage: { ...opts.mediaField, label: 'Background image' },
+        },
+        defaultProps: {
+          eyebrow: '',
+          heading: 'Build something great',
+          subtext: '',
+          primaryLabel: 'Get started',
+          primaryHref: '#',
+          secondaryLabel: '',
+          secondaryHref: '#',
+        },
+      },
+      Card: {
+        ...renderConfig.components.Card,
+        fields: {
+          image: { ...opts.mediaField, label: 'Image' },
+          heading: { type: 'text', label: 'Heading' },
+          text: { type: 'textarea', label: 'Text' },
+          href: { type: 'text', label: 'Link (optional)' },
+        },
+        defaultProps: { heading: 'Card title', text: 'Card description.', href: '' },
+      },
+      Stats: {
+        ...renderConfig.components.Stats,
+        fields: {
+          items: {
+            type: 'array',
+            label: 'Stats',
+            arrayFields: {
+              value: { type: 'text', label: 'Value' },
+              label: { type: 'text', label: 'Label' },
+            },
+            defaultItemProps: { value: '100%', label: 'Metric' },
+          },
+        },
+        defaultProps: {
+          items: [
+            { value: '99.9%', label: 'Uptime' },
+            { value: '290', label: 'req/s' },
+            { value: '16ms', label: 'p95 latency' },
+            { value: '100', label: 'Lighthouse' },
+          ],
+        },
+      },
+      CTABanner: {
+        ...renderConfig.components.CTABanner,
+        fields: {
+          heading: { type: 'text', label: 'Heading' },
+          subtext: { type: 'textarea', label: 'Subtext' },
+          buttonLabel: { type: 'text', label: 'Button label' },
+          buttonHref: { type: 'text', label: 'Button link' },
+        },
+        defaultProps: { heading: 'Ready to start?', subtext: '', buttonLabel: 'Get started', buttonHref: '#' },
       },
     },
   };
