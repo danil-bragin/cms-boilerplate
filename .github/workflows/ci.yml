@@ -96,9 +96,14 @@ jobs:
           timeout 40 bash -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
           docker run --rm --network cms-net --entrypoint sh minio/mc -c \
             "until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done; mc mb -p local/cms-media"
+          # WebP-only in CI: AVIF encoding is CPU-heavy and imgproxy has no result
+          # cache, so a burst of image requests on a small runner times some out
+          # (fails best-practices via broken-image console errors). WebP encodes
+          # ~10x cheaper and serves the gate's purpose. Prod keeps AVIF (compose).
           docker run -d --name imgproxy --network cms-net -p 8081:8080 \
             -e IMGPROXY_KEY=00 -e IMGPROXY_SALT=00 \
-            -e IMGPROXY_AUTO_WEBP=true -e IMGPROXY_AUTO_AVIF=true \
+            -e IMGPROXY_AUTO_WEBP=true -e IMGPROXY_AUTO_AVIF=false \
+            -e IMGPROXY_TIMEOUT=30 -e IMGPROXY_DOWNLOAD_TIMEOUT=15 -e IMGPROXY_CONCURRENCY=8 \
             -e IMGPROXY_USE_S3=true -e IMGPROXY_S3_ENDPOINT=http://minio:9000 \
             -e IMGPROXY_S3_REGION=us-east-1 \
             -e AWS_ACCESS_KEY_ID=minioadmin -e AWS_SECRET_ACCESS_KEY=minioadmin \
