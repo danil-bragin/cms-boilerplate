@@ -28,7 +28,7 @@ export function PostCard({ post }: { post: PostItem }) {
         <img
           src={post.image.src}
           srcSet={post.image.srcSet}
-          sizes="(max-width: 768px) 100vw, 380px"
+          sizes={'(max-width: 768px) 92vw, 360px'}
           alt={post.image.alt ?? ''}
           loading="lazy"
           decoding="async"

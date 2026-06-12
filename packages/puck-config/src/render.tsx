@@ -1,7 +1,7 @@
 import type { Config, Fields } from '@puckeditor/core';
 import type { ColumnsProps, SectionProps } from './types.js';
 import type { Components, RootProps } from './types.js';
-import { imageUrl, buildSrcSet, SIZES_HERO } from './image-url.js';
+import { imageUrl, buildSrcSet, SIZES_HERO, SIZES_CARD, SIZES_CONTENT } from './image-url.js';
 import { SearchBox } from './components/search-box.js';
 import { PostListServer } from './post-list.js';
 
@@ -98,10 +98,8 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
         return (
           <img
             src={imageUrl(media.s3Key, { width: 1280, height: heightFor(1280), crop: focal })}
-            srcSet={[640, 1280, 1920]
-              .map((w) => `${imageUrl(media.s3Key, { width: w, height: heightFor(w), crop: focal })} ${w}w`)
-              .join(', ')}
-            sizes="(max-width: 768px) 100vw, 1280px"
+            srcSet={buildSrcSet(media.s3Key, crop ? { ratio: crop, crop: focal } : {})}
+            sizes={SIZES_CONTENT}
             alt={alt || media.alt || ''}
             loading={priority ? 'eager' : 'lazy'}
             fetchPriority={priority ? 'high' : undefined}
@@ -226,9 +224,9 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
           <>
             {image?.s3Key && (
               <img
-                src={imageUrl(image.s3Key, { width: 800, height: 450, crop: { focalX: 0.5, focalY: 0.5 } })}
-                srcSet={[400, 800].map((w) => `${imageUrl(image.s3Key, { width: w, height: Math.round((w * 9) / 16), crop: { focalX: 0.5, focalY: 0.5 } })} ${w}w`).join(', ')}
-                sizes="(max-width: 768px) 100vw, 380px"
+                src={imageUrl(image.s3Key, { width: 768, height: Math.round((768 * 9) / 16), crop: { focalX: 0.5, focalY: 0.5 } })}
+                srcSet={buildSrcSet(image.s3Key, { widths: [360, 480, 768], ratio: [16, 9], crop: { focalX: 0.5, focalY: 0.5 } })}
+                sizes={SIZES_CARD}
                 alt={image.alt || ''}
                 loading="lazy"
                 decoding="async"
