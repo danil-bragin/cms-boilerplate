@@ -3,7 +3,7 @@
  * The web app injects a resolver server-side; in the editor canvas (client)
  * the component renders a static placeholder instead.
  */
-import { PostCard, postGridStyle } from './post-card.js';
+import { PostCard } from './post-card.js';
 
 export interface PostImage {
   /** pre-signed imgproxy URL (built server-side) so the client never needs keys */
@@ -71,7 +71,7 @@ export async function PostListServer({
     <section>
       {heading && <h2 style={headingStyle}>{heading}</h2>}
       {posts.length === 0 && <p style={emptyStyle}>No posts yet.</p>}
-      <div style={postGridStyle}>
+      <div className="pk-grid">
         {posts.map((post) => (
           <PostCard key={post.path} post={post} />
         ))}

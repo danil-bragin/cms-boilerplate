@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { VitalsReporter } from '@/components/vitals-reporter';
+import { renderCss } from '@cms/puck-config';
 
 /**
  * Root layout for public pages (no app/layout.tsx above — this owns <html>).
@@ -60,6 +61,7 @@ export default async function PublicLayout({
         {imgproxyOrigin && <link rel="preconnect" href={imgproxyOrigin} />}
         <meta name="theme-color" content="#1a1a2e" />
         <style dangerouslySetInnerHTML={{ __html: globalCss }} />
+        <style dangerouslySetInnerHTML={{ __html: renderCss }} />
         <script type="speculationrules" dangerouslySetInnerHTML={{ __html: speculationRules }} />
       </head>
       <body>

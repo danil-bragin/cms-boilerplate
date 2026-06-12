@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PostItem } from '../post-list.js';
-import { PostCard, postGridStyle } from '../post-card.js';
+import { PostCard } from '../post-card.js';
 
 /**
  * Client pagination for PostList. Initial page is server-rendered (crawlable +
@@ -37,7 +37,7 @@ export function PostPager({
 
   return (
     <>
-      <div style={{ ...postGridStyle, opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s' }}>
+      <div className="pk-grid" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s' }}>
         {posts.map((post) => (
           <PostCard key={post.path} post={post} />
         ))}

@@ -36,7 +36,7 @@ export const mapPost = (p: PostSummary): PostItem => ({
   image: p.cover
     ? {
         src: imageUrl(p.cover.s3Key, { width: COVER_W, height: ratioH(COVER_W), crop: { focalX: 0.5, focalY: 0.5 } }),
-        srcSet: [400, 800]
+        srcSet: [320, 480, 800]
           .map((w) => `${imageUrl(p.cover!.s3Key, { width: w, height: ratioH(w), crop: { focalX: 0.5, focalY: 0.5 } })} ${w}w`)
           .join(', '),
         blurDataUrl: p.cover.blurDataUrl ?? null,

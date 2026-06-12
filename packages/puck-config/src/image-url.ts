@@ -73,3 +73,29 @@ function base64Url(bytes: Uint8Array): string {
   const b64 = typeof btoa === 'function' ? btoa(bin) : Buffer.from(bytes).toString('base64');
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
+
+/** Width breakpoints that include small mobile sizes (not just 640+). */
+export const RESPONSIVE_WIDTHS = [360, 480, 768, 1024, 1280, 1920] as const;
+
+/**
+ * Build a `srcset` string for the given key, optionally cropping to a ratio.
+ * Note: `crop` (focal-point gravity) only takes effect when `ratio` is also provided;
+ * without `ratio`, imgproxy uses `rs:fit` and the focal point is ignored.
+ */
+export function buildSrcSet(
+  s3Key: string,
+  opts: { widths?: readonly number[]; ratio?: [number, number]; crop?: { focalX?: number; focalY?: number } } = {},
+): string {
+  const widths = opts.widths ?? RESPONSIVE_WIDTHS;
+  const heightFor = (w: number) => (opts.ratio ? Math.round((w * opts.ratio[1]) / opts.ratio[0]) : undefined);
+  return widths
+    .map((w) => `${imageUrl(s3Key, { width: w, height: heightFor(w), crop: opts.crop })} ${w}w`)
+    .join(', ');
+}
+
+/** `sizes` for a full-bleed hero/product image: ~92vw on phones, capped on desktop. */
+export const SIZES_HERO = '(max-width: 768px) 92vw, (max-width: 1100px) 90vw, 1040px';
+/** `sizes` for a 3-up card grid: full width on phones, ~360px in the grid. */
+export const SIZES_CARD = '(max-width: 768px) 92vw, 360px';
+/** `sizes` for an in-content image block: full width on phones, content-width on desktop. */
+export const SIZES_CONTENT = '(max-width: 768px) 92vw, 1024px';

@@ -50,6 +50,10 @@ jobs:
       - name: API integration tests (Testcontainers)
         run: pnpm --filter api test
 
+  # Desktop gate: perf/seo/a11y/best-practices budgets. Seeds WITHOUT media — the
+  # best-practices audit fails on any broken-image console error, and the layout
+  # quality this gate protects doesn't need images. (Mobile LCP, which DOES need
+  # images, is a separate job below.)
   lighthouse:
     runs-on: ubuntu-latest
     services:
@@ -84,9 +88,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      # No object store / imgproxy in this job — seed without media so the demo
-      # pages don't emit image requests that would 404 (broken-image console
-      # errors otherwise drop the Lighthouse best-practices budget).
       - run: SEED_SKIP_MEDIA=1 pnpm db:migrate && SEED_SKIP_MEDIA=1 pnpm db:seed
       - run: pnpm turbo build --filter=web
       - name: Enable Redis keyspace events (required by @trieb.work/nextjs-turbo-redis-cache)
@@ -97,5 +98,85 @@ jobs:
         run: |
           (cd apps/web && pnpm start &)
           timeout 60 bash -c 'until curl -sf http://localhost:3000/api/health; do sleep 1; done'
-      - name: Lighthouse CI (perf/seo/a11y budgets)
+      - name: Lighthouse CI — desktop (perf/seo/a11y/best-practices budgets)
         run: pnpm exec lhci autorun
+
+  # Mobile gate: LCP/perf/CLS/TBT on real images (MinIO + imgproxy). Does NOT
+  # assert best-practices, so a below-the-fold card image that hiccups under the
+  # CI runner's burst load can't fail the gate — the hero LCP image is what matters.
+  lighthouse-mobile:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_DB: cms, POSTGRES_USER: cms, POSTGRES_PASSWORD: cms }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U cms" --health-interval 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6380:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://cms:cms@localhost:5433/cms
+      REDIS_URL: redis://localhost:6380
+      SESSION_SECRET: "0000000000000000000000000000000000000000000000000000000000000000"
+      REVALIDATE_SECRET: "1111111111111111111111111111111111111111111111111111111111111111"
+      KEYCLOAK_ISSUER: http://localhost:8080/realms/cms
+      S3_BUCKET: cms-media
+      IMGPROXY_URL: http://localhost:8081
+      IMGPROXY_KEY: "00"
+      IMGPROXY_SALT: "00"
+      API_URL: http://localhost:3001
+      WEB_INTERNAL_URL: http://localhost:3000
+      SITE_URL_SCHEME: http
+      SITE_URL_PORT: "3000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # Run MinIO + imgproxy via docker run (official minio/minio needs a `server`
+      # command that service containers can't override). WebP-only: AVIF encoding
+      # is CPU-heavy and imgproxy has no result cache, so a burst on a small runner
+      # times some out. Prod keeps AVIF (docker-compose AUTO_AVIF).
+      - name: Start MinIO + imgproxy (media pipeline)
+        run: |
+          docker network create cms-net
+          docker run -d --name minio --network cms-net -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio server /data --address :9000
+          timeout 40 bash -c 'until curl -sf http://localhost:9000/minio/health/live; do sleep 1; done'
+          docker run --rm --network cms-net --entrypoint sh minio/mc -c \
+            "until mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done; mc mb -p local/cms-media"
+          docker run -d --name imgproxy --network cms-net -p 8081:8080 \
+            -e IMGPROXY_KEY=00 -e IMGPROXY_SALT=00 \
+            -e IMGPROXY_AUTO_WEBP=true -e IMGPROXY_AUTO_AVIF=false \
+            -e IMGPROXY_TIMEOUT=30 -e IMGPROXY_DOWNLOAD_TIMEOUT=15 \
+            -e IMGPROXY_USE_S3=true -e IMGPROXY_S3_ENDPOINT=http://minio:9000 \
+            -e IMGPROXY_S3_REGION=us-east-1 \
+            -e AWS_ACCESS_KEY_ID=minioadmin -e AWS_SECRET_ACCESS_KEY=minioadmin \
+            darthsim/imgproxy
+          timeout 30 bash -c 'until curl -sf http://localhost:8081/health; do sleep 1; done'
+      - run: pnpm db:migrate && pnpm db:seed
+      - run: pnpm turbo build --filter=web
+      - name: Enable Redis keyspace events (required by @trieb.work/nextjs-turbo-redis-cache)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq redis-tools
+          redis-cli -p 6380 config set notify-keyspace-events Exe
+      - name: Start web
+        run: |
+          (cd apps/web && pnpm start &)
+          timeout 60 bash -c 'until curl -sf http://localhost:3000/api/health; do sleep 1; done'
+      - name: Verify the LCP hero image serves (fail if 404)
+        run: |
+          url=$(curl -s http://localhost:3000/en | grep -oE 'http://localhost:8081/[A-Za-z0-9_-]+/[^" ]+\.webp' | head -1)
+          echo "probe image: $url"
+          test -n "$url" || { echo "no imgproxy image URL found on /en — media pipeline broken"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: image/avif,image/webp,*/*' "$url")
+          echo "image status: $code"
+          test "$code" = "200" || { echo "imgproxy did not serve the hero image (got $code)"; exit 1; }
+      - name: Lighthouse CI — mobile (LCP budget, devtools throttling)
+        run: pnpm exec lhci autorun --config=lighthouserc.mobile.json
