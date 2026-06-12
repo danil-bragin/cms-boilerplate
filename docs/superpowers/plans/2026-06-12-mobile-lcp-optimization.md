@@ -8,7 +8,9 @@
 
 **Tech Stack:** Next.js 16 (App Router, RSC `<Render>`), `@cms/puck-config` render config, imgproxy (signed S3 URLs), `@lhci/cli` + `lighthouse`, GitHub Actions.
 
-**Verification model:** Performance work is verified by measurement, not unit tests. The repeatable command is:
+**MEASUREMENT FINDING (after Workstream A — supersedes earlier assumptions):** Lighthouse *simulated* (lantern) throttling reports an inflated ~1.2s LCP "render delay" that does NOT occur on a real device. Under *devtools* (real applied) throttling the same page measures **LCP 1.4s, render-delay 22ms, perf 100**. The real bottleneck is **Load Delay** — every image (already tiny 3–6KB AVIF) only starts loading at ~583ms because the LCP preload fires only after the HTML document is parsed under 4× CPU throttle. Consequences: (1) the CI gate uses **`--throttling-method=devtools`**, not the default lantern; (2) Workstream B's value for LCP is real — smaller HTML + deferred inline JS → faster parse → earlier preload → lower Load Delay; (3) image *bytes* are already solved by Workstream A.
+
+**Verification model:** Performance work is verified by measurement, not unit tests. Use **devtools throttling** (add `--throttling-method=devtools`) as the representative number. The repeatable command is:
 
 ```bash
 LH=node_modules/.pnpm/node_modules/.bin/lighthouse
@@ -641,7 +643,7 @@ Expected: desktop perf/seo/a11y/bp all ≥ their budgets (still ~100).
     "collect": {
       "url": ["http://localhost:3000/en", "http://localhost:3000/en/blog"],
       "numberOfRuns": 3,
-      "settings": { "skipAudits": ["uses-http2"] }
+      "settings": { "skipAudits": ["uses-http2"], "throttlingMethod": "devtools" }
     },
     "assert": {
       "assertions": {
