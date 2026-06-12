@@ -115,15 +115,21 @@ async function makeWebp(svg: string): Promise<{ buf: Buffer; width: number; heig
   // tiny LQIP for the blur background
   const blurBuf = await sharp(Buffer.from(svg)).resize(20).webp({ quality: 40 }).toBuffer();
   const blur = `data:image/webp;base64,${blurBuf.toString('base64')}`;
-  // small inline variant for the LCP hero: ~640px wide, AVIF (≈5KB) so the doc
-  // stays light; fall back to WebP if the AVIF encoder is unavailable.
-  let lcpInline: string;
-  try {
-    const avif = await sharp(Buffer.from(svg)).resize(640).avif({ quality: 45 }).toBuffer();
-    lcpInline = `data:image/avif;base64,${avif.toString('base64')}`;
-  } catch {
-    const webp = await sharp(Buffer.from(svg)).resize(640).webp({ quality: 60 }).toBuffer();
-    lcpInline = `data:image/webp;base64,${webp.toString('base64')}`;
+  // Inline LCP variant — OPT-IN (INLINE_LCP=1). Off by default because embedding
+  // the hero image in the HTML bloats the Redis/CDN-cached hot-path payload, which
+  // works against the high-read-load design (tiny cached HTML). It mainly helps the
+  // synthetic Lighthouse slow-4G LCP / no-CDN deploys; with a CDN the field LCP is
+  // already "good" and CWV ranking is threshold-based, so it adds ~no SEO benefit.
+  let lcpInline = '';
+  if (process.env.INLINE_LCP === '1') {
+    // ~640px wide, AVIF (≈5KB); fall back to WebP if the AVIF encoder is unavailable.
+    try {
+      const avif = await sharp(Buffer.from(svg)).resize(640).avif({ quality: 45 }).toBuffer();
+      lcpInline = `data:image/avif;base64,${avif.toString('base64')}`;
+    } catch {
+      const webp = await sharp(Buffer.from(svg)).resize(640).webp({ quality: 60 }).toBuffer();
+      lcpInline = `data:image/webp;base64,${webp.toString('base64')}`;
+    }
   }
   return { buf, width: meta.width ?? 0, height: meta.height ?? 0, blur, lcpInline };
 }

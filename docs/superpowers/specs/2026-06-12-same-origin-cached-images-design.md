@@ -102,8 +102,14 @@ it arrives with the document — no gated request. `seed-media` generates a smal
 (~640px AVIF, ≈5KB) `lcpInline` data-URI per image; the seed attaches it to the
 hero's media ref only (via `lcpMediaRef`, so other images don't bloat the HTML);
 the Hero render uses it as `src` (no srcset) when present. Measured under nginx:
-**mobile LCP 1.4s → 0.7s, perf 100, CLS 0** (doc +~3KB). Real uploads would have
-the media worker populate `lcpInline` for above-the-fold images.
+**mobile LCP 1.4s → 0.7s, perf 100, CLS 0** (doc +~3KB).
+
+**OPT-IN (`INLINE_LCP=1`), OFF by default.** Inlining embeds the image in the cached
+HTML hot-path, which fights the high-read-load design (tiny Redis/CDN-cached payload)
+— and with a CDN the field LCP is already in the "good" zone, where CWV ranking is
+threshold-based, so it adds ~no SEO benefit. It mainly helps the synthetic Lighthouse
+score and no-CDN deploys. Default stays thin + responsive + CDN-cached images. Real
+uploads would have the media worker populate `lcpInline` for above-the-fold images.
 
 ## Out of Scope
 
