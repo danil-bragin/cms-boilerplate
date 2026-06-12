@@ -1,7 +1,7 @@
 import type { Config, Fields } from '@puckeditor/core';
 import type { ColumnsProps, SectionProps } from './types.js';
 import type { Components, RootProps } from './types.js';
-import { imageUrl } from './image-url.js';
+import { imageUrl, buildSrcSet, SIZES_HERO } from './image-url.js';
 import { SearchBox } from './components/search-box.js';
 import { PostListServer } from './post-list.js';
 
@@ -194,16 +194,24 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
               {image?.s3Key && (
                 <div style={{ marginTop: 56 }}>
                   <img
-                    src={imageUrl(image.s3Key, { width: 1280 })}
-                    srcSet={[640, 1280, 1920].map((w) => `${imageUrl(image.s3Key, { width: w })} ${w}w`).join(', ')}
-                    sizes="(max-width: 1100px) 92vw, 1040px"
+                    src={imageUrl(image.s3Key, { width: 768 })}
+                    srcSet={buildSrcSet(image.s3Key)}
+                    sizes={SIZES_HERO}
                     alt={image.alt || ''}
                     width={image.width ?? undefined}
                     height={image.height ?? undefined}
                     loading="eager"
                     fetchPriority="high"
-                    decoding="async"
-                    style={{ width: '100%', maxWidth: 1040, height: 'auto', borderRadius: 14, boxShadow: '0 30px 60px rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    decoding="sync"
+                    style={{
+                      width: '100%',
+                      maxWidth: 1040,
+                      height: 'auto',
+                      borderRadius: 14,
+                      boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: image.blurDataUrl ? `url(${image.blurDataUrl}) center / cover` : undefined,
+                    }}
                   />
                 </div>
               )}
