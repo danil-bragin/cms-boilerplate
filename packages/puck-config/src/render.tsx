@@ -3,6 +3,7 @@ import type { ColumnsProps, SectionProps } from './types.js';
 import type { Components, RootProps } from './types.js';
 import { imageUrl, buildSrcSet, SIZES_HERO, SIZES_CARD, SIZES_CONTENT } from './image-url.js';
 import { SearchBox } from './components/search-box.js';
+import { LazyHydrate } from './components/lazy-hydrate.js';
 import { PostListServer } from './post-list.js';
 
 /**
@@ -117,7 +118,20 @@ export const renderConfig: Config<{ components: Components; root: RootProps }> =
       },
     },
     Search: {
-      render: ({ placeholder }) => <SearchBox placeholder={placeholder || 'Search…'} />,
+      render: ({ placeholder }) => (
+        <LazyHydrate
+          placeholder={
+            <input
+              type="search"
+              placeholder={placeholder || 'Search…'}
+              readOnly
+              style={{ width: '100%', maxWidth: 480, padding: '10px 14px', borderRadius: 8, border: '1px solid #ccc', fontSize: 16 }}
+            />
+          }
+        >
+          <SearchBox placeholder={placeholder || 'Search…'} />
+        </LazyHydrate>
+      ),
     },
     PostList: {
       render: ({ heading, limit, paginated, puck }) => {
